@@ -1,4 +1,4 @@
-import { supabase, PatrolReport, PatrolResult, PatrolIssue } from '@/lib/supabase'
+import { supabase, PatrolReport, PatrolResult, PatrolIssue, isSupabaseConfigured } from '@/lib/supabase'
 
 export type SubmittedReportRow = {
   report: PatrolReport
@@ -8,11 +8,24 @@ export type SubmittedReportRow = {
 }
 
 export async function fetchPendingReports(): Promise<PatrolReport[]> {
-  const [{ data: reports }, { data: results }, { data: issues }] = await Promise.all([
-    supabase.from('patrol_reports').select('*').order('date', { ascending: false }),
-    supabase.from('patrol_results').select('report_id'),
-    supabase.from('patrol_issues').select('report_id'),
-  ])
+  let reports: any[] | null = null
+  let results: any[] | null = null
+  let issues: any[] | null = null
+
+  if (isSupabaseConfigured) {
+    try {
+      const [repRes, resRes, issRes] = await Promise.all([
+        supabase.from('patrol_reports').select('*').order('date', { ascending: false }),
+        supabase.from('patrol_results').select('report_id'),
+        supabase.from('patrol_issues').select('report_id'),
+      ])
+      reports = repRes.data
+      results = resRes.data
+      issues = issRes.data
+    } catch (err) {
+      console.warn('Supabase fetchPendingReports error:', err)
+    }
+  }
 
   const submittedIds = new Set([
     ...(results ?? []).map((r) => r.report_id),
@@ -61,10 +74,21 @@ export async function fetchPendingReports(): Promise<PatrolReport[]> {
 }
 
 export async function fetchSubmittedReports(): Promise<SubmittedReportRow[]> {
-  const [{ data: results }, { data: issues }] = await Promise.all([
-    supabase.from('patrol_results').select('*, patrol_reports(*)').order('created_at', { ascending: true }),
-    supabase.from('patrol_issues').select('*, patrol_reports(*)').order('created_at', { ascending: true }),
-  ])
+  let results: any[] | null = null
+  let issues: any[] | null = null
+
+  if (isSupabaseConfigured) {
+    try {
+      const [resRes, issRes] = await Promise.all([
+        supabase.from('patrol_results').select('*, patrol_reports(*)').order('created_at', { ascending: true }),
+        supabase.from('patrol_issues').select('*, patrol_reports(*)').order('created_at', { ascending: true }),
+      ])
+      results = resRes.data
+      issues = issRes.data
+    } catch (err) {
+      console.warn('Supabase fetchSubmittedReports error:', err)
+    }
+  }
 
   const rowsMap = new Map<string, SubmittedReportRow>()
 
@@ -393,20 +417,32 @@ export async function fetchSubmittedReport(reportId: string): Promise<SubmittedR
     }
   }
 
-  const [{ data: results }, { data: issues }] = await Promise.all([
-    supabase
-      .from('patrol_results')
-      .select('*, patrol_reports(*)')
-      .eq('report_id', reportId)
-      .order('created_at', { ascending: false })
-      .limit(1),
-    supabase
-      .from('patrol_issues')
-      .select('*, patrol_reports(*)')
-      .eq('report_id', reportId)
-      .order('created_at', { ascending: false })
-      .limit(1),
-  ])
+  if (!isSupabaseConfigured) return null
+
+  let results: any[] | null = null
+  let issues: any[] | null = null
+
+  try {
+    const [resRes, issRes] = await Promise.all([
+      supabase
+        .from('patrol_results')
+        .select('*, patrol_reports(*)')
+        .eq('report_id', reportId)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      supabase
+        .from('patrol_issues')
+        .select('*, patrol_reports(*)')
+        .eq('report_id', reportId)
+        .order('created_at', { ascending: false })
+        .limit(1),
+    ])
+    results = resRes.data
+    issues = issRes.data
+  } catch (err) {
+    console.warn('Supabase fetchSubmittedReportById error:', err)
+    return null
+  }
 
   const resultData = results && results.length > 0 ? results[0] : null
   const issueData = issues && issues.length > 0 ? issues[0] : null
