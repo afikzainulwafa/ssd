@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Security Dashboard — Profiling</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #e8ecf4;
+        --surface: #ffffff;
+        --border: #dde4ef;
+        --text: #1a2744;
+        --text-muted: #5c6b88;
+        --primary: #1565d8;
+        --primary-light: #e3effd;
+        --red: #e53935;
+        --red-soft: #ffebee;
+        --orange: #f57c00;
+        --orange-soft: #fff3e0;
+        --green: #2e7d32;
+        --green-soft: #e8f5e9;
+        --yellow: #f9a825;
+        --radius: 10px;
+        --shadow: 0 1px 4px rgba(26, 39, 68, 0.06);
+        --topbar-h: 56px;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        height: 100%;
+        overflow: hidden;
+        font-family: "Inter", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .app { display: flex; height: 100vh; overflow: hidden; }
+
+      /* ── Sidebar (unchanged style, compact) ── */
+      .sidebar {
+        width: 248px;
+        flex-shrink: 0;
+        background: linear-gradient(180deg, #f8f9fc, #eef2f8);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      .sidebar-logo { padding: 14px 14px 12px; border-bottom: 1px solid var(--border); }
+      .logo-text { font-weight: 800; font-size: 14px; color: #0d47a1; }
+      .logo-text span { display: block; font-weight: 500; font-size: 8px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
+
+      .nav { padding: 8px; flex: 1; }
+      .nav-group { margin-bottom: 4px; }
+
+      .nav-toggle {
+        width: 100%; display: flex; align-items: center; gap: 9px;
+        padding: 8px 10px; border: none; background: transparent;
+        border-radius: 8px; font: inherit; font-weight: 700;
+        color: var(--text); cursor: pointer; text-align: left;
+      }
+      .nav-toggle:hover { background: rgba(21, 101, 216, 0.06); }
+      .nav-toggle .chevron { margin-left: auto; transition: transform 0.2s; color: var(--text-muted); }
+      .nav-group.open .chevron { transform: rotate(180deg); }
+
+      .nav-icon-wrap {
+        width: 30px; height: 30px; border-radius: 8px;
+        display: grid; place-items: center; flex-shrink: 0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.07); color: #fff;
+      }
+      .nav-icon-wrap.blue { background: linear-gradient(135deg, #42a5f5, #1565c0); }
+      .nav-icon-wrap.green { background: linear-gradient(135deg, #66bb6a, #2e7d32); }
+      .nav-icon-wrap.orange { background: linear-gradient(135deg, #ffb74d, #ef6c00); }
+
+      .nav-sub { display: none; padding-left: 4px; }
+      .nav-group.open .nav-sub { display: block; }
+
+      .nav-link {
+        display: flex; align-items: center; gap: 9px;
+        padding: 7px 10px; border-radius: 8px;
+        color: var(--text-muted); text-decoration: none;
+        font-weight: 600; font-size: 11.5px; margin: 1px 0;
+      }
+      .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.75); }
+      .nav-link.active {
+        background: linear-gradient(90deg, #1565d8, #1976d2);
+        color: #fff; box-shadow: 0 3px 10px rgba(21,101,216,0.3);
+      }
+      .nav-link.active .sub-icon-wrap { background: rgba(255,255,255,0.25); color: #fff; border-color: transparent; }
+
+      .sub-icon-wrap {
+        width: 24px; height: 24px; border-radius: 6px;
+        display: grid; place-items: center; flex-shrink: 0;
+        background: #fff; border: 1px solid var(--border);
+      }
+
+      /* ── Main ── */
+      .main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
+      .topbar {
+        height: var(--topbar-h);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 0 16px;
+        display: flex; align-items: center; gap: 12px;
+        flex-shrink: 0;
+      }
+
+      .menu-btn {
+        width: 34px; height: 34px; border: 1px solid var(--border);
+        border-radius: 8px; background: #fff; cursor: pointer;
+        display: grid; place-items: center; color: var(--text-muted);
+      }
+      .page-title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .page-icon {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: linear-gradient(135deg, #ede7f6, #fff);
+        border: 1px solid #d1c4e9; color: #5e35b1;
+        display: grid; place-items: center; flex-shrink: 0;
+      }
+      .page-title { font-size: 16px; font-weight: 800; white-space: nowrap; }
+      .page-sub { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+
+      .filters { display: flex; gap: 6px; flex: 1; }
+      .filter-select {
+        appearance: none; background: #f8fafc; border: 1px solid var(--border);
+        border-radius: 7px; padding: 6px 26px 6px 10px;
+        font: inherit; font-weight: 700; font-size: 11px; color: var(--text); cursor: pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%235c6b88' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 7px center;
+      }
+
+      .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+      .admin-badge {
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+        color: #0d47a1; font-weight: 800; font-size: 10px;
+        padding: 5px 11px; border-radius: 16px; border: 1px solid #90caf9;
+      }
+      .user-pill { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 11px; }
+      .user-avatar {
+        width: 30px; height: 30px; border-radius: 50%;
+        background: linear-gradient(135deg, #1565d8, #42a5f5);
+        color: #fff; display: grid; place-items: center;
+      }
+      .logout-btn {
+        width: 30px; height: 30px; border: 1px solid #ffcdd2;
+        background: #fff5f5; color: var(--red); border-radius: 8px; cursor: pointer;
+      }
+
+      /* ── Dashboard: fixed viewport, no scroll ── */
+      .dashboard {
+        flex: 1;
+        padding: 12px 16px 14px;
+        display: grid;
+        grid-template-columns: 228px 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 12px;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: 0 8px 20px rgba(26, 39, 68, 0.08), var(--shadow);
+        border: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      .card-accent { height: 3px; flex-shrink: 0; }
+      .card-accent.slate { background: linear-gradient(90deg, #78909c, #b0bec5); }
+      .card-accent.blue { background: linear-gradient(90deg, #0d47a1, #42a5f5); }
+      .card-accent.purple { background: linear-gradient(90deg, #4527a0, #b388ff); }
+      .card-accent.teal { background: linear-gradient(90deg, #f57f17, #ffca28); }
+      .card-accent.orange { background: linear-gradient(90deg, #e65100, #ffb74d); }
+
+      .card-body {
+        padding: 12px 14px 14px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .card-head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 8px; flex-shrink: 0;
+      }
+
+      .card-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+      .card-icon {
+        width: 34px; height: 34px; border-radius: 9px;
+        display: grid; place-items: center; flex-shrink: 0;
+      }
+      .card-icon svg { width: 17px; height: 17px; }
+      .card-icon.blue { background: #e3f2fd; color: #1565c0; }
+      .card-icon.purple { background: #ede7f6; color: #5e35b1; }
+      .card-icon.teal { background: #fff8e1; color: #f9a825; }
+      .card-icon.orange { background: #fff3e0; color: #e65100; }
+
+      .card-title { font-size: 14px; font-weight: 800; }
+
+      .card-divider {
+        height: 1px; margin: 10px 0; flex-shrink: 0;
+        background: linear-gradient(90deg, var(--dc, #dde4ef), transparent);
+      }
+      .card-selector { grid-row: 1 / 3; --dc: #90a4ae; }
+      .card-profiling { --dc: #64b5f6; }
+      .card-manpower { --dc: #b39ddb; }
+      .card-tech { --dc: #ffb74d; }
+      .card-basic { --dc: #ffb74d; }
+
+      .rata-badge {
+        display: flex; flex-direction: column; align-items: flex-end;
+        padding: 5px 11px; border-radius: 9px;
+        background: linear-gradient(135deg, #1565d8, #42a5f5);
+        color: #fff; box-shadow: 0 3px 12px rgba(21,101,216,0.35);
+        line-height: 1.1; flex-shrink: 0;
+      }
+      .rata-badge .lbl { font-size: 8px; font-weight: 700; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.04em; }
+      .rata-badge .val { font-size: 18px; font-weight: 800; }
+
+      .detail-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 9px; border: 1px solid var(--border);
+        border-radius: 7px; background: #fff; color: var(--primary);
+        font: inherit; font-size: 10px; font-weight: 700; cursor: pointer;
+        text-decoration: none;
+      }
+
+      .card-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+      /* ── Selector ── */
+      .tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-shrink: 0; }
+      .tab {
+        flex: 1; padding: 7px 4px; border: 1px solid var(--border);
+        border-radius: 8px; background: #fff; font: inherit;
+        font-size: 11px; font-weight: 800; color: var(--text-muted); cursor: pointer;
+      }
+      .tab.active {
+        background: linear-gradient(135deg, #1565d8, #1976d2);
+        border-color: #1565d8; color: #fff;
+      }
+
+      .priority-stack { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; flex-shrink: 0; }
+
+      .priority-box {
+        display: flex; align-items: center; justify-content: space-between;
+        border-radius: 10px; padding: 8px 10px;
+        border: 1px solid transparent;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .priority-box::before {
+        content: "";
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 4px;
+        border-radius: 10px 0 0 10px;
+      }
+
+      .priority-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+      .priority-icon {
+        width: 28px; height: 28px; border-radius: 8px;
+        display: grid; place-items: center; flex-shrink: 0;
+      }
+
+      .priority-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+      .priority-label { font-size: 11px; font-weight: 800; line-height: 1.2; }
+      .priority-hint { font-size: 8px; font-weight: 600; opacity: 0.75; }
+
+      .priority-box .count {
+        font-size: 18px; font-weight: 800; line-height: 1;
+        min-width: 28px; text-align: right;
+      }
+
+      .priority-box.tinggi {
+        background: linear-gradient(135deg, #fff5f5 0%, #fff 60%);
+        border-color: #ffcdd2; color: #b71c1c; order: 1;
+      }
+      .priority-box.tinggi::before { background: #e53935; }
+      .priority-box.tinggi .priority-icon { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+      .priority-box.sedang {
+        background: linear-gradient(135deg, #fffaf0 0%, #fff 60%);
+        border-color: #ffe0b2; color: #e65100; order: 2;
+      }
+      .priority-box.sedang::before { background: #f57c00; }
+      .priority-box.sedang .priority-icon { background: #fff3e0; color: #ef6c00; border: 1px solid #ffcc80; }
+
+      .priority-box.rendah {
+        background: linear-gradient(135deg, #f3faf4 0%, #fff 60%);
+        border-color: #c8e6c9; color: #2e7d32; order: 3;
+      }
+      .priority-box.rendah::before { background: #43a047; }
+      .priority-box.rendah .priority-icon { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+
+      .psm-list {
+        list-style: none; flex: 1; min-height: 0;
+        display: flex; flex-direction: column; gap: 4px;
+        overflow: hidden;
+      }
+
+      .psm-item {
+        display: flex; align-items: center; gap: 8px;
+        padding: 7px 9px; border-radius: 9px; cursor: pointer;
+        font-weight: 700; font-size: 12px; border: 1px solid transparent;
+        flex-shrink: 0; transition: transform 0.15s, box-shadow 0.15s;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      }
+
+      .psm-item:hover { transform: translateX(3px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+
+      .psm-icon {
+        width: 26px; height: 26px; border-radius: 7px;
+        display: grid; place-items: center; flex-shrink: 0;
+        background: #fff; border: 1px solid rgba(0, 0, 0, 0.06);
+      }
+
+      .psm-name { flex: 1; min-width: 0; }
+
+      .psm-tag {
+        font-size: 8px; font-weight: 800; text-transform: uppercase;
+        padding: 3px 6px; border-radius: 5px; letter-spacing: 0.03em;
+        flex-shrink: 0;
+      }
+
+      .psm-item.status-red { color: #b71c1c; background: linear-gradient(90deg, #ffebee, #fff); border-color: #ffcdd2; }
+      .psm-item.status-red .psm-icon { color: #c62828; background: #fff; }
+      .psm-item.status-red .psm-tag { background: #e53935; color: #fff; }
+      .psm-item.status-red.active {
+        background: linear-gradient(90deg, #ffcdd2, #ffebee);
+        border-color: #e57373; box-shadow: inset 4px 0 0 #c62828, 0 2px 8px rgba(229, 57, 53, 0.15);
+      }
+
+      .psm-item.status-orange { color: #e65100; background: linear-gradient(90deg, #fff8e1, #fff); border-color: #ffe0b2; }
+      .psm-item.status-orange .psm-icon { color: #ef6c00; }
+      .psm-item.status-orange .psm-tag { background: #fb8c00; color: #fff; }
+      .psm-item.status-orange.active {
+        background: linear-gradient(90deg, #ffe0b2, #fff8e1);
+        border-color: #ffb74d; box-shadow: inset 4px 0 0 #ef6c00, 0 2px 8px rgba(251, 140, 0, 0.15);
+      }
+
+      .psm-item.status-green { color: #1b5e20; background: linear-gradient(90deg, #e8f5e9, #fff); border-color: #c8e6c9; }
+      .psm-item.status-green .psm-icon { color: #2e7d32; }
+      .psm-item.status-green .psm-tag { background: #43a047; color: #fff; }
+      .psm-item.status-green.active {
+        background: linear-gradient(90deg, #c8e6c9, #e8f5e9);
+        border-color: #81c784; box-shadow: inset 4px 0 0 #2e7d32, 0 2px 8px rgba(67, 160, 71, 0.15);
+      }
+
+      /* ── Chart ── */
+      .chart-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+      .bar-chart-area { flex: 1; display: flex; gap: 6px; min-height: 0; }
+      .y-axis {
+        display: flex; flex-direction: column; justify-content: space-between;
+        font-size: 10px; font-weight: 700; color: var(--text-muted);
+        padding-bottom: 26px; width: 32px; text-align: right;
+      }
+      .chart-plot {
+        flex: 1; position: relative;
+        border-left: 1px solid var(--border); border-bottom: 1px solid var(--border);
+        background: #fafbfd; border-radius: 0 0 6px 0; min-height: 0;
+      }
+      .grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #e8edf5; }
+      .target-line { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--red); z-index: 2; }
+      .target-line::after {
+        content: "100%"; position: absolute; right: 2px; top: -14px;
+        font-size: 9px; font-weight: 800; color: var(--red); background: #fff; padding: 0 4px;
+      }
+      .bars-row {
+        position: absolute; inset: 0 0 26px 0;
+        display: flex; align-items: flex-end; justify-content: space-around; padding: 0 10px;
+      }
+      .bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; justify-content: flex-end; }
+      .bar-value { font-size: 12px; font-weight: 800; color: var(--primary); margin-bottom: 4px; }
+      .bar-fill {
+        width: 50px; background: linear-gradient(180deg, #42a5f5, #1565c0);
+        border-radius: 7px 7px 0 0; min-height: 4px;
+        box-shadow: 0 -3px 10px rgba(21, 101, 192, 0.2);
+      }
+      .x-labels {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        display: flex; justify-content: space-around;
+        padding: 5px 10px 0; font-size: 11px; font-weight: 700; color: var(--text-muted);
+      }
+      .legend {
+        display: flex; justify-content: center; gap: 16px;
+        margin-top: 8px; font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0;
+      }
+      .legend-item { display: flex; align-items: center; gap: 5px; }
+      .legend-dash { width: 16px; border-top: 2px dashed var(--red); }
+      .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+
+      /* ── Man Power (4 cols, grouped header) ── */
+      .table-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+
+      .mp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+      .mp-table thead th {
+        background: linear-gradient(180deg, #1976d2, #1565c0);
+        color: #fff; font-weight: 800; text-align: center;
+        border: 1px solid rgba(255,255,255,0.12);
+      }
+      .mp-table thead tr:first-child th {
+        padding: 8px 6px; font-size: 10px;
+      }
+      .mp-table thead tr:nth-child(2) th {
+        padding: 5px 6px; font-size: 9px; font-weight: 700;
+        background: linear-gradient(180deg, #1a6fc9, #1456b8);
+      }
+      .mp-table thead th.th-kategori { text-align: left; padding-left: 10px; }
+      .mp-table thead th.th-group { border-bottom: none; }
+      .mp-table thead th.th-pedoman { width: 56px; }
+
+      .mp-table tbody td {
+        padding: 12px 8px; border-bottom: 1px solid #edf2f7;
+        text-align: center; vertical-align: middle;
+      }
+      .mp-table tbody td:first-child { text-align: left; padding-left: 8px; }
+      .mp-table tbody tr:last-child td { border-bottom: none; }
+
+      .cat-cell { display: flex; align-items: center; gap: 8px; }
+      .cat-icon {
+        width: 28px; height: 28px; border-radius: 8px;
+        display: grid; place-items: center; flex-shrink: 0;
+      }
+      .cat-icon.officer { background: #e8eaf6; color: #3949ab; }
+      .cat-icon.supervisor { background: #fff3e0; color: #ef6c00; }
+      .cat-icon.guard { background: #e0f2f1; color: #00695c; }
+      .cat-name { font-weight: 800; font-size: 12px; }
+
+      .metric-pill {
+        display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+        padding: 6px 10px; border-radius: 8px; font-weight: 800; font-size: 12px;
+        min-width: 72px;
+      }
+      .metric-pill.good { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+      .metric-pill.bad { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; }
+      .metric-pill.surplus { background: #e8f5e9; color: #1b5e20; border: 1px solid #81c784; }
+
+      .si {
+        width: 17px; height: 17px; border-radius: 50%;
+        display: grid; place-items: center; flex-shrink: 0;
+      }
+      .si.ok { background: #43a047; color: #fff; }
+      .si.no { background: #e53935; color: #fff; }
+      .si.up { background: #00897b; color: #fff; }
+
+      .pedoman-val {
+        display: inline-block; font-weight: 800; font-size: 13px;
+        color: var(--text-muted); background: #f1f5f9;
+        padding: 5px 12px; border-radius: 7px;
+      }
+
+      /* ── Tech gauges ── */
+      .gauge-grid {
+        flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+        gap: 10px; min-height: 0; align-items: stretch;
+      }
+
+      .gauge-panel {
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+        border: 1px solid #edf2f7; border-radius: 10px;
+        padding: 12px 10px 10px; min-height: 0; flex: 1; gap: 6px;
+      }
+
+      .gauge-device {
+        width: 48px; height: 48px; border-radius: 12px;
+        display: grid; place-items: center; flex-shrink: 0;
+        border: 1px solid var(--border);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        background: #fff;
+      }
+
+      .gauge-device img {
+        width: 36px;
+        height: 36px;
+        object-fit: contain;
+        display: block;
+      }
+
+      .infra-icon img {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        display: block;
+      }
+
+      .gauge-svg-box {
+        width: 100%;
+        max-width: 180px;
+        height: 100px;
+        flex: 1;
+        min-height: 88px;
+        max-height: 108px;
+      }
+
+      .gauge-svg-box svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .gauge-name {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--text);
+        flex-shrink: 0;
+      }
+
+      .gauge-count {
+        width: 100%;
+        text-align: center;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      }
+
+      .gauge-count strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1.2;
+      }
+
+      .gauge-count span {
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+
+      /* ── Basic infra ── */
+      .infra-list {
+        flex: 1; display: flex; flex-direction: column;
+        justify-content: space-evenly; gap: 4px; min-height: 0;
+      }
+
+      .infra-item {
+        display: grid;
+        grid-template-columns: 32px 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 3px 10px; align-items: center;
+        padding: 7px 9px; border-radius: 8px;
+        background: #f8fafc; border: 1px solid #edf2f7;
+      }
+
+      .infra-icon {
+        grid-row: 1 / 3;
+        width: 32px; height: 32px; border-radius: 8px;
+        display: grid; place-items: center;
+        background: #fff; border: 1px solid var(--border);
+      }
+      .infra-icon.patrol { color: #1565c0; }
+      .infra-icon.guardpost { color: #5e35b1; }
+      .infra-icon.trench { color: #6d4c41; }
+      .infra-icon.gate { color: #00897b; }
+
+      .infra-name { font-weight: 800; font-size: 12px; }
+      .infra-pct { font-weight: 800; font-size: 12px; }
+      .infra-track { grid-column: 2 / -1; height: 7px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
+      .infra-fill { height: 100%; border-radius: inherit; }
+      .infra-fill.warn { background: linear-gradient(90deg, #f9a825, #ffd54f); }
+      .infra-fill.danger { background: linear-gradient(90deg, #e53935, #ef5350); }
+      .infra-fill.good { background: linear-gradient(90deg, #43a047, #66bb6a); }
+
+      .infra-footnote {
+        text-align: center; font-size: 9px; font-weight: 700;
+        color: var(--text-muted); margin-top: 5px; flex-shrink: 0;
+      }
+
+      @media (max-width: 1100px) {
+        .sidebar { width: 220px; }
+        .dashboard { grid-template-columns: 190px 1fr 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+          <img src="/sinarmas-logo.png" alt="Sinarmas Agribusiness and Food" class="sidebar-logo-img" style="height: 36px; width: auto; display: block;" />
+        </div>
+                <nav class="nav">
+          <div class="nav-group open">
+            <button class="nav-toggle" type="button">
+              <span class="nav-icon-wrap blue">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              </span>
+              Dashboard
+              <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-sub">
+              <a href="/srmd-monitoring/index.html" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#1565c0"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+                SRMD Monitoring
+              </a>
+              <a href="/profiling/index.html" class="nav-link active">
+                <span class="sub-icon-wrap"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span>
+                Profiling
+              </a>
+              <!-- <a href="/map-viewer" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#ef6c00"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7l6-3 5.447 2.724A1 1 0 0121 7.618v10.764a1 1 0 01-1.447.894L15 17l-6 3z"/></svg></span>
+                Visualisasi Peta Estate C
+              </a> -->
+              <a href="/reports" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#1565d8"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+                Analisis Patroli
+              </a>
+              <a href="/utilization" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#00838f"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 16 14"/></svg></span>
+                Utilisasi Kendaraan &amp; GPS
+              </a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <button class="nav-toggle" type="button">
+              <span class="nav-icon-wrap green">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              </span>
+              Input Data
+              <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-sub">
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#7c4dff"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg></span>Tag Rute</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#00897b"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 7 8 11.7z"/></svg></span>Perangkat GPS &amp; Kendaraan</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#1565c0"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>Anggota Tim Patroli</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#e53935"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span>Blok Rawan</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#ef6c00"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Rute Bank</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#5e35b1"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Jadwal</a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <button class="nav-toggle" type="button">
+              <span class="nav-icon-wrap orange">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+              </span>
+              Laporan
+              <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-sub">
+              <a href="/review-patrol" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#0097a7"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M9 15l2 2 4-4"/></svg></span>
+                Tinjau Laporan Patroli
+              </a>
+              <a href="/hasil-laporan-patroli" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#43a047"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M9 15l2 2 4-4"/></svg></span>
+                Hasil Laporan Patroli
+              </a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <button class="nav-toggle" type="button">
+              <span class="nav-icon-wrap red">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </span>
+              Super Admin
+              <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-sub">
+              <a href="/super-admin/thresholds" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#e53935"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+                Ambang Batas &amp; Parameter
+              </a>
+            </div>
+          </div>
+        </nav>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <button class="menu-btn" type="button" id="menuBtn" aria-label="Menu">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+          </button>
+          <div class="page-title-wrap">
+            <div class="page-icon">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            </div>
+            <div>
+              <h1 class="page-title">Profiling Overview</h1>
+              <p class="page-sub">Smart Security Dashboard · PSM A</p>
+            </div>
+          </div>
+          <div class="filters">
+            <select class="filter-select"><option>PSM A</option></select>
+            <select class="filter-select"><option>Region A</option></select>
+            <select class="filter-select"><option>ALL ESTATE</option></select>
+            <select class="filter-select"><option>2026</option></select>
+            <select class="filter-select"><option>May</option></select>
+          </div>
+          <div class="topbar-right">
+            <span class="admin-badge">Admin</span>
+            <div class="user-pill">
+              <div class="user-avatar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+              23000984
+            </div>
+            <button class="logout-btn" type="button" aria-label="Logout">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="dashboard">
+          <!-- Selector -->
+          <article class="card card-selector">
+            <div class="card-accent slate"></div>
+            <div class="card-body">
+              <div class="tabs">
+                <button class="tab active" type="button">PSM</button>
+                <button class="tab" type="button">Region</button>
+                <button class="tab" type="button">Estate</button>
+              </div>
+              <div class="priority-stack">
+                <div class="priority-box tinggi">
+                  <div class="priority-left">
+                    <div class="priority-icon">
+                      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div class="priority-text">
+                      <span class="priority-label">Prioritas Tinggi</span>
+                      <span class="priority-hint">Perlu tindakan segera</span>
+                    </div>
+                  </div>
+                  <span class="count">4</span>
+                </div>
+                <div class="priority-box sedang">
+                  <div class="priority-left">
+                    <div class="priority-icon">
+                      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </div>
+                    <div class="priority-text">
+                      <span class="priority-label">Prioritas Sedang</span>
+                      <span class="priority-hint">Pantau berkala</span>
+                    </div>
+                  </div>
+                  <span class="count">3</span>
+                </div>
+                <div class="priority-box rendah">
+                  <div class="priority-left">
+                    <div class="priority-icon">
+                      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+                    </div>
+                    <div class="priority-text">
+                      <span class="priority-label">Prioritas Rendah</span>
+                      <span class="priority-hint">Kondisi terkendali</span>
+                    </div>
+                  </div>
+                  <span class="count">1</span>
+                </div>
+              </div>
+              <div class="card-divider"></div>
+              <ul class="psm-list">
+                <li class="psm-item status-red">
+                  <span class="psm-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <span class="psm-name">PSM KUBAR</span>
+                  <span class="psm-tag">Tinggi</span>
+                </li>
+                <li class="psm-item status-red">
+                  <span class="psm-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <span class="psm-name">PSM F</span>
+                  <span class="psm-tag">Tinggi</span>
+                </li>
+                <li class="psm-item status-red">
+                  <span class="psm-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <span class="psm-name">PSM 6A</span>
+                  <span class="psm-tag">Tinggi</span>
+                </li>
+                <li class="psm-item status-red">
+                  <span class="psm-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <span class="psm-name">PSM G</span>
+                  <span class="psm-tag">Tinggi</span>
+                </li>
+                <li class="psm-item status-orange">
+                  <span class="psm-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <span class="psm-name">PSM B</span>
+                  <span class="psm-tag">Sedang</span>
+                </li>
+                <li class="psm-item status-orange">
+                  <span class="psm-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <span class="psm-name">PSM C</span>
+                  <span class="psm-tag">Sedang</span>
+                </li>
+                <li class="psm-item status-orange">
+                  <span class="psm-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <span class="psm-name">PSM E</span>
+                  <span class="psm-tag">Sedang</span>
+                </li>
+                <li class="psm-item status-green active">
+                  <span class="psm-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <span class="psm-name">PSM A</span>
+                  <span class="psm-tag">Rendah</span>
+                </li>
+              </ul>
+            </div>
+          </article>
+
+          <!-- Profiling Overview -->
+          <article class="card card-profiling">
+            <div class="card-accent blue"></div>
+            <div class="card-body">
+              <div class="card-head">
+                <div class="card-head-left">
+                  <div class="card-icon blue">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                  </div>
+                  <h2 class="card-title">Profiling Overview</h2>
+                </div>
+                <div class="rata-badge">
+                  <span class="lbl">Rata-rata</span>
+                  <span class="val">100%</span>
+                </div>
+              </div>
+              <div class="card-divider"></div>
+              <div class="card-content">
+                <div class="chart-wrap">
+                  <div class="bar-chart-area">
+                    <div class="y-axis"><span>125%</span><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div>
+                    <div class="chart-plot">
+                      <div class="grid-line" style="top:0%"></div>
+                      <div class="grid-line" style="top:20%"></div>
+                      <div class="grid-line" style="top:40%"></div>
+                      <div class="grid-line" style="top:60%"></div>
+                      <div class="grid-line" style="top:80%"></div>
+                      <div class="target-line" style="top:20%"></div>
+                      <div class="bars-row">
+                        <div class="bar-group"><span class="bar-value">97%</span><div class="bar-fill" style="height:77.6%"></div></div>
+                        <div class="bar-group"><span class="bar-value">90%</span><div class="bar-fill" style="height:72%"></div></div>
+                        <div class="bar-group"><span class="bar-value">112%</span><div class="bar-fill" style="height:89.6%"></div></div>
+                      </div>
+                      <div class="x-labels"><span>Man Power</span><span>Basic Infra</span><span>Tech Infra</span></div>
+                    </div>
+                  </div>
+                  <div class="legend">
+                    <span class="legend-item"><span class="legend-dash"></span> Kebutuhan</span>
+                    <span class="legend-item"><span class="legend-dot"></span> Aktual</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Man Power -->
+          <article class="card card-manpower">
+            <div class="card-accent purple"></div>
+            <div class="card-body">
+              <div class="card-head">
+                <div class="card-head-left">
+                  <div class="card-icon purple">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                  </div>
+                  <h2 class="card-title">Man Power</h2>
+                </div>
+                <a class="detail-btn" href="manpower-detail.html">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                  Detail
+                </a>
+              </div>
+              <div class="card-divider"></div>
+              <div class="card-content table-wrap">
+                <table class="mp-table">
+                  <thead>
+                    <tr>
+                      <th class="th-kategori" rowspan="2">Kategori</th>
+                      <th class="th-group" colspan="2">Aktual vs Kebutuhan</th>
+                      <th class="th-pedoman" rowspan="2">Pedoman</th>
+                    </tr>
+                    <tr>
+                      <th>%</th>
+                      <th>Jumlah</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <div class="cat-cell">
+                          <div class="cat-icon officer"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l2 6h6l-5 4 2 8-5-4-5 4 2-8-5-4h6z"/></svg></div>
+                          <span class="cat-name">Secoreg</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="metric-pill good">
+                          <span class="si ok"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+                          100%
+                        </span>
+                      </td>
+                      <td>
+                        <span class="metric-pill good">
+                          <span class="si ok"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+                          1/1
+                        </span>
+                      </td>
+                      <td><span class="pedoman-val">1</span></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="cat-cell">
+                          <div class="cat-icon supervisor"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 21v-1a6 6 0 0112 0v1"/></svg></div>
+                          <span class="cat-name">Kanitpam</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="metric-pill bad">
+                          <span class="si no"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+                          75%
+                        </span>
+                      </td>
+                      <td>
+                        <span class="metric-pill bad">
+                          <span class="si no"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+                          3/4
+                        </span>
+                      </td>
+                      <td><span class="pedoman-val">7</span></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="cat-cell">
+                          <div class="cat-icon guard"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                          <span class="cat-name">Satpam</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="metric-pill surplus">
+                          <span class="si up"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+                          115%
+                        </span>
+                      </td>
+                      <td>
+                        <span class="metric-pill surplus">
+                          <span class="si up"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+                          321/279
+                        </span>
+                      </td>
+                      <td><span class="pedoman-val">309</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+
+          <!-- Tech Infrastructure -->
+          <article class="card card-tech">
+            <div class="card-accent teal"></div>
+            <div class="card-body">
+              <div class="card-head">
+                <div class="card-head-left">
+                  <div class="card-icon teal">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 11-14h-9l1-6z"/></svg>
+                  </div>
+                  <h2 class="card-title">Tech Infrastructure</h2>
+                </div>
+                <a class="detail-btn" href="techinfra-detail.html">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                  Detail
+                </a>
+              </div>
+              <div class="card-divider"></div>
+              <div class="card-content">
+                <div class="gauge-grid">
+                  <div class="gauge-panel">
+                    <div class="gauge-device" aria-hidden="true">
+                      <img src="assets/icons/cctv.png" width="36" height="36" alt="" />
+                    </div>
+                    <div class="gauge-svg-box">
+                      <svg viewBox="0 0 200 100" aria-label="CCTV 109%">
+                        <path d="M 28 82 A 72 72 0 0 1 172 82" fill="none" stroke="#e8edf5" stroke-width="11" stroke-linecap="round"/>
+                        <!-- Arc aktual hanya sampai 100% (posisi ~2 o'clock) -->
+                        <path d="M 28 82 A 72 72 0 0 1 172 82" fill="none" stroke="#43a047" stroke-width="11" stroke-linecap="round" stroke-dasharray="188.5 226" pathLength="226"/>
+                        <!-- Garis kebutuhan horizontal di posisi 100% pada arc -->
+                        <line x1="150" y1="46" x2="176" y2="46" stroke="#e53935" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round"/>
+                        <text x="152" y="41" font-family="Inter,sans-serif" font-size="8" font-weight="800" fill="#e53935">100%</text>
+                        <!-- Jarum 109%: 100%@30° → 130%@0° → 109% ≈ 21° -->
+                        <g transform="rotate(-21 100 82)">
+                          <polygon points="100,82 99,80.8 148,81.2 150,82 148,82.8 99,83.2" fill="#374151"/>
+                          <circle cx="100" cy="82" r="3.5" fill="#374151"/>
+                          <circle cx="100" cy="82" r="1.4" fill="#fff"/>
+                        </g>
+                        <text x="100" y="56" text-anchor="middle" font-family="Inter,sans-serif" font-size="21" font-weight="800" fill="#2e7d32">109%</text>
+                      </svg>
+                    </div>
+                    <span class="gauge-name">CCTV</span>
+                    <div class="gauge-count">
+                      <strong>38 / 35 unit</strong>
+                      <span>Aktual vs Kebutuhan</span>
+                    </div>
+                  </div>
+                  <div class="gauge-panel">
+                    <div class="gauge-device" aria-hidden="true">
+                      <img src="assets/icons/drone-security.png" width="36" height="36" alt="" />
+                    </div>
+                    <div class="gauge-svg-box">
+                      <svg viewBox="0 0 200 100" aria-label="Drone 114%">
+                        <path d="M 28 82 A 72 72 0 0 1 172 82" fill="none" stroke="#e8edf5" stroke-width="11" stroke-linecap="round"/>
+                        <path d="M 28 82 A 72 72 0 0 1 172 82" fill="none" stroke="#43a047" stroke-width="11" stroke-linecap="round" stroke-dasharray="188.5 226" pathLength="226"/>
+                        <line x1="150" y1="46" x2="176" y2="46" stroke="#e53935" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round"/>
+                        <text x="152" y="41" font-family="Inter,sans-serif" font-size="8" font-weight="800" fill="#e53935">100%</text>
+                        <!-- Jarum 114%: lebih dekat ujung kanan daripada 109% -->
+                        <g transform="rotate(-16 100 82)">
+                          <polygon points="100,82 99,80.8 148,81.2 150,82 148,82.8 99,83.2" fill="#374151"/>
+                          <circle cx="100" cy="82" r="3.5" fill="#374151"/>
+                          <circle cx="100" cy="82" r="1.4" fill="#fff"/>
+                        </g>
+                        <text x="100" y="56" text-anchor="middle" font-family="Inter,sans-serif" font-size="21" font-weight="800" fill="#2e7d32">114%</text>
+                      </svg>
+                    </div>
+                    <span class="gauge-name">Drone Security</span>
+                    <div class="gauge-count">
+                      <strong>8 / 7 unit</strong>
+                      <span>Aktual vs Kebutuhan</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="legend">
+                  <span class="legend-item"><span class="legend-dash"></span> Kebutuhan</span>
+                  <span class="legend-item"><span class="legend-dot" style="background:#43a047"></span> Aktual</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Basic Infrastructure -->
+          <article class="card card-basic">
+            <div class="card-accent orange"></div>
+            <div class="card-body">
+              <div class="card-head">
+                <div class="card-head-left">
+                  <div class="card-icon orange">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                  </div>
+                  <h2 class="card-title">Basic Infrastructure</h2>
+                </div>
+                <a class="detail-btn" href="basicinfra-detail.html">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                  Detail
+                </a>
+              </div>
+              <div class="card-divider"></div>
+              <div class="card-content">
+                <div class="infra-list">
+                  <div class="infra-item">
+                    <div class="infra-icon patrol">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 14h1.2l1.2-3.8h11.2L18.5 14H20" stroke="#1565c0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M5.5 14.5h13v2.2H5.5v-2.2z" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.2"/>
+                        <path d="M7 11.5h10l1.2 2.7H5.8L7 11.5z" fill="#1565c0"/>
+                        <rect x="10.5" y="8" width="3" height="2.2" rx="0.6" fill="#ffca28" stroke="#f9a825" stroke-width="0.8"/>
+                        <circle cx="8" cy="16.7" r="1.6" fill="#37474f"/><circle cx="8" cy="16.7" r="0.7" fill="#eceff1"/>
+                        <circle cx="16" cy="16.7" r="1.6" fill="#37474f"/><circle cx="16" cy="16.7" r="0.7" fill="#eceff1"/>
+                      </svg>
+                    </div>
+                    <span class="infra-name">Kendaraan</span>
+                    <span class="infra-pct" style="color:#f9a825">95%</span>
+                    <div class="infra-track"><div class="infra-fill warn" style="width:95%"></div></div>
+                  </div>
+                  <div class="infra-item">
+                    <div class="infra-icon guardpost">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M5 19V11l7-5 7 5v8H5z" fill="#ede7f6" stroke="#5e35b1" stroke-width="1.2" stroke-linejoin="round"/>
+                        <path d="M5 19h14" stroke="#5e35b1" stroke-width="1.2"/>
+                        <rect x="9.5" y="13" width="5" height="6" rx="0.5" fill="#fff" stroke="#5e35b1" stroke-width="1"/>
+                        <path d="M12 9v3" stroke="#5e35b1" stroke-width="1.2" stroke-linecap="round"/>
+                        <circle cx="12" cy="8" r="1.2" fill="#7e57c2"/>
+                      </svg>
+                    </div>
+                    <span class="infra-name">Pos Jaga</span>
+                    <span class="infra-pct" style="color:#e53935">74%</span>
+                    <div class="infra-track"><div class="infra-fill danger" style="width:74%"></div></div>
+                  </div>
+                  <div class="infra-item">
+                    <div class="infra-icon trench">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M3 17h18" stroke="#6d4c41" stroke-width="1.3" stroke-linecap="round"/>
+                        <path d="M5 17V12c0-2.2 3.2-4 7-4s7 1.8 7 4v5" fill="#efebe9" stroke="#6d4c41" stroke-width="1.2"/>
+                        <path d="M8.5 13.5h7" stroke="#8d6e63" stroke-width="1.2" stroke-linecap="round"/>
+                        <path d="M7 11l1.5-1.5M17 11l-1.5-1.5" stroke="#6d4c41" stroke-width="1.2" stroke-linecap="round"/>
+                      </svg>
+                    </div>
+                    <span class="infra-name">Parit Pengamanan</span>
+                    <span class="infra-pct" style="color:#f9a825">91%</span>
+                    <div class="infra-track"><div class="infra-fill warn" style="width:91%"></div></div>
+                  </div>
+                  <div class="infra-item">
+                    <div class="infra-icon gate">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M5 19V7" stroke="#00897b" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M19 19V7" stroke="#00897b" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M5 9h14M5 6.5h14" stroke="#00897b" stroke-width="1.3" stroke-linecap="round"/>
+                        <path d="M8 9v4.5M12 9v6M16 9v4.5" stroke="#26a69a" stroke-width="1.8" stroke-linecap="round"/>
+                        <rect x="4" y="18" width="16" height="2" rx="0.5" fill="#00897b"/>
+                      </svg>
+                    </div>
+                    <span class="infra-name">Portal</span>
+                    <span class="infra-pct" style="color:#2e7d32">100%</span>
+                    <div class="infra-track"><div class="infra-fill good" style="width:100%"></div></div>
+                  </div>
+                </div>
+                <p class="infra-footnote">Aktual vs Kebutuhan</p>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      document.querySelectorAll(".nav-toggle").forEach((btn) => {
+        btn.addEventListener("click", () => btn.closest(".nav-group").classList.toggle("open"));
+      });
+      document.getElementById("menuBtn").addEventListener("click", () => {
+        document.getElementById("sidebar").classList.toggle("open");
+      });
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+        });
+      });
+      document.querySelectorAll(".psm-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          document.querySelectorAll(".psm-item").forEach((i) => i.classList.remove("active"));
+          item.classList.add("active");
+        });
+      });
+    </script>
+  </body>
+</html>

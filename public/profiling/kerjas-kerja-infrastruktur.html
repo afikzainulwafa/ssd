@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kertas Kerja Infrastruktur</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/table.css" />
+    <style>
+      :root {
+        --bg: #e8edf5;
+        --surface: #fff;
+        --border: #d5deeb;
+        --text: #152238;
+        --text-muted: #5a6b85;
+        --primary: #1565d8;
+        --primary-glow: rgba(21, 101, 216, 0.18);
+        --green: #1b8a3e;
+        --green-bg: #e6f7ec;
+        --green-border: #9ed9b0;
+        --yellow: #e65100;
+        --yellow-bg: #fff4e5;
+        --yellow-border: #ffcc80;
+        --red: #c62828;
+        --red-bg: #fdecea;
+        --red-border: #ef9a9a;
+        --teal: #00897b;
+        --edit-bg: #fffbea;
+        --edit-border: #ffe082;
+        --radius: 14px;
+        --shadow: 0 4px 20px rgba(21, 34, 56, 0.07);
+        --thead: linear-gradient(135deg, #1a56c4 0%, #0d47a1 55%, #1565c0 100%);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body {
+        height: 100%; overflow: hidden;
+        font-family: Inter, system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 13px;
+      }
+      body::before {
+        content: "";
+        position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        background:
+          radial-gradient(ellipse 80% 50% at 10% -10%, rgba(21,101,216,0.08), transparent 55%),
+          radial-gradient(ellipse 60% 40% at 95% 5%, rgba(0,137,123,0.07), transparent 50%);
+      }
+      .app { display: flex; height: 100vh; overflow: hidden; }
+
+      .sidebar {
+        width: 248px; flex-shrink: 0;
+        background: linear-gradient(180deg, #f8f9fc, #eef2f8);
+        border-right: 1px solid var(--border);
+        display: flex; flex-direction: column; overflow-y: auto;
+      }
+      .sidebar-logo { padding: 14px; border-bottom: 1px solid var(--border); }
+      .logo-text { font-weight: 800; font-size: 14px; color: #0d47a1; }
+      .logo-text span { display: block; font-size: 8px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 3px; }
+      .nav { padding: 8px; flex: 1; }
+      .nav-group { margin-bottom: 4px; }
+      .nav-toggle {
+        width: 100%; display: flex; align-items: center; gap: 9px;
+        padding: 8px 10px; border: none; background: transparent;
+        border-radius: 8px; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; text-align: left;
+      }
+      .nav-toggle .chevron { margin-left: auto; color: var(--text-muted); transition: transform 0.2s; }
+      .nav-group.open .chevron { transform: rotate(180deg); }
+      .nav-icon-wrap {
+        width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: #fff; flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      }
+      .nav-icon-wrap.blue { background: linear-gradient(135deg, #42a5f5, #1565c0); }
+      .nav-icon-wrap.green { background: linear-gradient(135deg, #66bb6a, #2e7d32); }
+      .nav-icon-wrap.orange { background: linear-gradient(135deg, #ffb74d, #ef6c00); }
+      .nav-sub { display: none; padding-left: 4px; }
+      .nav-group.open .nav-sub { display: block; }
+      .nav-link {
+        display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 8px;
+        color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 11.5px; margin: 1px 0;
+      }
+      .nav-link:hover { background: rgba(255,255,255,0.8); color: var(--text); }
+      .nav-link.active {
+        background: linear-gradient(90deg, #1565d8, #1976d2); color: #fff;
+        box-shadow: 0 3px 10px rgba(21,101,216,0.25);
+      }
+      .nav-link.active .sub-icon-wrap { background: rgba(255,255,255,0.25); color: #fff; border-color: transparent; }
+      .sub-icon-wrap {
+        width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center;
+        background: #fff; border: 1px solid var(--border);
+      }
+
+      .main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+      .topbar {
+        height: 56px; flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border);
+        padding: 0 16px; display: flex; align-items: center; gap: 12px;
+      }
+      .menu-btn {
+        width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 8px;
+        background: #fff; cursor: pointer; display: none; place-items: center; color: var(--text-muted);
+      }
+      .page-title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .page-icon {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: linear-gradient(135deg, #e8f5e9, #fff);
+        border: 1px solid #a5d6a7; color: var(--teal);
+        display: grid; place-items: center; flex-shrink: 0;
+      }
+      .page-title { font-size: 16px; font-weight: 800; white-space: nowrap; }
+      .page-sub { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+      .filters { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; justify-content: center; }
+      .filter-select {
+        appearance: none; background: #f8fafc; border: 1px solid var(--border); border-radius: 7px;
+        padding: 6px 26px 6px 10px; font: inherit; font-weight: 700; font-size: 11px; color: var(--text); cursor: pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%235c6b88' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 7px center;
+      }
+      .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-shrink: 0; }
+      .admin-badge {
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb); color: #0d47a1; font-weight: 800; font-size: 10px;
+        padding: 5px 11px; border-radius: 16px; border: 1px solid #90caf9;
+      }
+      .user-pill { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 11px; }
+      .user-avatar {
+        width: 30px; height: 30px; border-radius: 50%;
+        background: linear-gradient(135deg, #1565d8, #42a5f5); color: #fff; display: grid; place-items: center;
+      }
+      .logout-btn {
+        width: 30px; height: 30px; border: 1px solid #ffcdd2; background: #fff5f5; color: var(--red);
+        border-radius: 8px; cursor: pointer; display: grid; place-items: center;
+      }
+
+      .content-scroll {
+        flex: 1; overflow: auto; padding: 16px 18px 22px;
+        display: flex; flex-direction: column; gap: 14px; position: relative; z-index: 1;
+      }
+
+      .stats-row {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      }
+      .stat-card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 14px 16px; box-shadow: var(--shadow);
+        display: flex; align-items: center; gap: 12px;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(21,34,56,0.1); }
+      .stat-icon {
+        width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0;
+      }
+      .stat-icon.total { background: linear-gradient(135deg, #e3f2fd, #bbdefb); color: #1565c0; }
+      .stat-icon.ok { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); color: var(--green); }
+      .stat-icon.warn { background: linear-gradient(135deg, #fff8e1, #ffe082); color: #f57f17; }
+      .stat-icon.bad { background: linear-gradient(135deg, #ffebee, #ffcdd2); color: var(--red); }
+      .stat-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+      .stat-value { font-size: 22px; font-weight: 800; line-height: 1.1; margin-top: 2px; }
+      .stat-value.ok { color: var(--green); }
+      .stat-value.warn { color: #f57f17; }
+      .stat-value.bad { color: var(--red); }
+
+      .toolbar {
+        background: rgba(255,255,255,0.92); backdrop-filter: blur(10px);
+        border: 1px solid var(--border); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 14px 18px;
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+      }
+      .toolbar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px;
+        font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: #fff; color: var(--text);
+      }
+      .btn:hover { background: #f8fafc; }
+      .btn-primary {
+        background: linear-gradient(135deg, #1976d2, #0d47a1); color: #fff; border-color: #1565c8;
+        box-shadow: 0 4px 14px rgba(21,101,216,0.35);
+      }
+      .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+      .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+      .btn-outline {
+        border-color: #90caf9; color: var(--primary); background: linear-gradient(180deg, #fff, #f0f7ff);
+        box-shadow: 0 2px 8px rgba(21,101,216,0.1);
+      }
+      .btn-outline.active { background: var(--edit-bg); border-color: var(--edit-border); color: #e65100; }
+      .btn-back {
+        border-color: var(--border); color: var(--text-muted); text-decoration: none; font-size: 11px;
+      }
+      .btn-back:hover { color: var(--primary); }
+
+      .toast {
+        position: fixed; bottom: 20px; right: 20px; padding: 12px 18px; border-radius: 10px;
+        background: #1a2744; color: #fff; font-size: 12px; font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 200;
+        opacity: 0; pointer-events: none; transition: opacity 0.25s;
+      }
+      .toast.show { opacity: 1; }
+
+      /* Page-specific table overrides (base styles in assets/table.css) */
+      .content-scroll > .table-card { flex: 1; min-height: 0; }
+      .table-scroll { min-height: 280px; }
+      .table-toolbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+      .btn-history {
+        border-color: #b39ddb; color: #5e35b1; background: linear-gradient(180deg, #fff, #f3e5f5);
+        box-shadow: 0 2px 8px rgba(94,53,177,0.12);
+      }
+      .btn-history:hover { background: #f3e5f5; }
+      .search-wrap {
+        position: relative; flex: 1; min-width: 200px; max-width: 340px;
+      }
+      .search-wrap input { width: 100%; font: inherit; font-size: 12px; }
+      .search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+      .search-clear {
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+        border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px;
+      }
+      #dataTable.data-table { min-width: 1100px; }
+      tbody td.text-left { text-align: left; padding-left: 14px; }
+      tbody td.num { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; padding-right: 14px; }
+      .status-cell { text-align: center; }
+      .type-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800;
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb); color: #0d47a1;
+        border: 1px solid #90caf9; box-shadow: 0 2px 8px rgba(21,101,216,0.12);
+      }
+      .type-badge.tech { background: linear-gradient(135deg, #ede7f6, #d1c4e9); color: #4527a0; border-color: #b39ddb; }
+      .type-badge.basic { background: linear-gradient(135deg, #e0f2f1, #b2dfdb); color: #00695c; border-color: #80cbc4; }
+
+      .search-wrap input {
+        padding: 9px 36px 9px 36px; border-radius: 10px;
+        border: 1px solid var(--border); background: #f8fafc;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      .search-wrap input:focus {
+        outline: none; border-color: #90caf9; background: #fff;
+        box-shadow: 0 0 0 3px var(--primary-glow);
+      }
+      #dataTable.sticky-head thead th {
+        text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.03em;
+      }
+      tbody tr {
+        transition: background 0.15s;
+        border-left: 4px solid transparent;
+      }
+      tbody tr:hover { background: #f0f6ff !important; }
+      tbody tr.cat-kendaraan { border-left-color: #1565d8; }
+      tbody tr.cat-pos { border-left-color: #7b1fa2; }
+      tbody tr.cat-parit { border-left-color: #6d4c41; }
+      tbody tr.cat-portal { border-left-color: #00897b; }
+      tbody tr.cat-tech { border-left-color: #4527a0; }
+      tbody tr:nth-child(even) { background: #f8fafd; }
+      tbody td { padding: 11px 10px; }
+      tbody td.kategori-cell {
+        font-weight: 800; color: var(--text); vertical-align: top;
+        background: linear-gradient(90deg, rgba(21,101,216,0.04), transparent);
+      }
+      .sub-tag {
+        display: inline-block; padding: 3px 10px; border-radius: 20px;
+        font-size: 11px; font-weight: 700; background: #f0f4f8; color: var(--text-muted);
+        border: 1px solid var(--border);
+      }
+      .sub-tag.parit { background: #efebe9; color: #5d4037; border-color: #bcaaa4; font-family: ui-monospace, monospace; }
+      .unit-tag {
+        display: inline-block; padding: 3px 10px; border-radius: 6px;
+        font-size: 10px; font-weight: 800; background: #eceff1; color: #546e7a;
+        letter-spacing: 0.04em; text-transform: uppercase;
+      }
+      tbody tr.editing td.editable {
+        background: var(--edit-bg);
+        box-shadow: inset 0 0 0 1px var(--edit-border);
+      }
+      tbody input.cell-input {
+        width: 80px; padding: 6px 10px; border: 2px solid #42a5f5; border-radius: 8px;
+        background: #fff; box-shadow: 0 2px 8px rgba(21,101,216,0.15);
+        text-align: right;
+      }
+      tbody input.cell-input:focus { outline: none; border-color: #1565d8; box-shadow: 0 0 0 3px var(--primary-glow); }
+      tbody tr.row-rusak-warn td.num.rusak {
+        background: var(--red-bg); color: var(--red); font-weight: 800;
+        box-shadow: inset 0 0 0 1px var(--red-border);
+      }
+      .status-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 5px 12px 5px 8px; border-radius: 20px;
+        font-size: 11px; font-weight: 800; white-space: nowrap;
+      }
+      .status-pill .status-dot {
+        width: 22px; height: 22px; border-radius: 50%;
+        display: grid; place-items: center; flex-shrink: 0;
+      }
+      .status-pill.status-ok { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+      .status-pill.status-ok .status-dot { background: var(--green); color: #fff; }
+      .status-pill.status-warn { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+      .status-pill.status-warn .status-dot { background: #ffa726; color: #fff; }
+      .status-pill.status-bad { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+      .status-pill.status-bad .status-dot { background: var(--red); color: #fff; }
+      .variant-pill {
+        display: inline-block; min-width: 44px; padding: 4px 10px;
+        border-radius: 8px; font-weight: 800; text-align: right;
+      }
+      .variant-pos { color: var(--green); background: var(--green-bg); border: 1px solid var(--green-border); }
+      .variant-neg { color: var(--red); background: var(--red-bg); border: 1px solid var(--red-border); }
+      .aktual-val { font-weight: 800; color: #1565c0; }
+      .edit-banner {
+        display: none; align-items: center; gap: 8px;
+        padding: 8px 14px; border-radius: 10px;
+        background: linear-gradient(90deg, #fff8e1, #fffde7);
+        border: 1px solid #ffe082; color: #e65100;
+        font-size: 11px; font-weight: 700;
+      }
+      .edit-banner.show { display: flex; }
+      .edit-banner svg { flex-shrink: 0; }
+
+      .modal-overlay {
+        position: fixed; inset: 0; background: rgba(21,34,56,0.45); backdrop-filter: blur(4px);
+        z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px;
+      }
+      .modal-overlay.open { display: flex; }
+      .modal {
+        background: #fff; border-radius: 14px; width: 100%; max-width: 640px; max-height: 80vh;
+        box-shadow: 0 20px 60px rgba(21,34,56,0.25); display: flex; flex-direction: column; overflow: hidden;
+      }
+      .modal-head {
+        padding: 16px 18px; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        background: linear-gradient(180deg, #fafbfd, #fff);
+      }
+      .modal-title { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+      .modal-title-icon {
+        width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
+        background: #f3e5f5; color: #5e35b1; border: 1px solid #d1c4e9;
+      }
+      .modal-close {
+        width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px;
+        background: #fff; cursor: pointer; display: grid; place-items: center; color: var(--text-muted);
+      }
+      .modal-body { padding: 0; overflow: auto; flex: 1; }
+      .history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .history-table thead th {
+        background: linear-gradient(180deg, #5e35b1, #4527a0); color: #fff;
+        padding: 10px 12px; text-align: left; font-weight: 800; font-size: 10px;
+        text-transform: uppercase; letter-spacing: 0.03em; position: sticky; top: 0;
+      }
+      .history-table tbody td {
+        padding: 10px 12px; border-bottom: 1px solid #edf2f7; vertical-align: top;
+      }
+      .history-table tbody tr:hover { background: #faf5ff; }
+      .history-time { font-weight: 700; color: var(--text); white-space: nowrap; }
+      .history-user { color: var(--primary); font-weight: 700; }
+      .history-field { font-weight: 700; }
+      .history-change { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-muted); }
+      .history-change em { font-style: normal; color: var(--green); font-weight: 800; }
+      .modal-foot {
+        padding: 12px 18px; border-top: 1px solid var(--border);
+        display: flex; justify-content: flex-end; background: #fafbfd;
+      }
+
+      @media (max-width: 1200px) {
+        .stats-row { grid-template-columns: repeat(2, 1fr); }
+        .filters { justify-content: flex-start; }
+        .menu-btn { display: grid; }
+        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 100; transform: translateX(-100%); transition: transform 0.2s; }
+        .sidebar.open { transform: translateX(0); }
+        .page-sub { display: none; }
+      }
+
+      /* Custom Tooltip Styles for Status Header */
+      .status-th {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        justify-content: center;
+        width: 100%;
+      }
+      .info-tooltip-wrap {
+        position: relative;
+        display: inline-flex;
+        cursor: pointer;
+        color: var(--text-muted);
+        vertical-align: middle;
+      }
+      .info-tooltip-wrap:hover {
+        color: #1565d8;
+      }
+      .info-tooltip-box {
+        position: absolute;
+        top: 140%;
+        right: -10px;
+        background: rgba(30, 41, 59, 0.98);
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.4;
+        text-align: left;
+        width: 250px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 0.2s, transform 0.2s;
+        z-index: 200;
+        text-transform: none; /* Override uppercase table headers */
+        letter-spacing: normal;
+        white-space: normal; /* Ensure text wraps correctly */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .info-tooltip-box::after {
+        content: '';
+        position: absolute;
+        bottom: 100%;
+        right: 12px;
+        border-width: 6px;
+        border-style: solid;
+        border-color: transparent transparent rgba(30, 41, 59, 0.98) transparent;
+      }
+      .info-tooltip-wrap:hover .info-tooltip-box {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo"><img src="/sinarmas-logo.png" alt="Sinarmas Agribusiness and Food" class="sidebar-logo-img" style="height: 36px; width: auto; display: block;" /></div>
+                <nav class="nav">
+          <div class="nav-group open">
+            <button class="nav-toggle" type="button">
+              <span class="nav-icon-wrap blue">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              </span>
+              Dashboard
+              <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-sub">
+              <a href="/srmd-monitoring/index.html" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#1565c0"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+                SRMD Monitoring
+              </a>
+              <a href="/profiling/index.html" class="nav-link active">
+                <span class="sub-icon-wrap"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span>
+                Profiling
+              </a>
+              <!-- <a href="/map-viewer" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#ef6c00"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7l6-3 5.447 2.724A1 1 0 0121 7.618v10.764a1 1 0 01-1.447.894L15 17l-6 3z"/></svg></span>
+                Visualisasi Peta Estate C
+              </a> -->
+              <a href="/reports" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#1565d8"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+                Analisis Patroli
+              </a>
+              <a href="/utilization" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#00838f"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 16 14"/></svg></span>
+                Utilisasi Kendaraan &amp; GPS
+              </a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <button class="nav-toggle" type="button">
+              <span class="nav-icon-wrap green">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              </span>
+              Input Data
+              <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-sub">
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#7c4dff"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg></span>Tag Rute</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#00897b"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 7 8 11.7z"/></svg></span>Perangkat GPS &amp; Kendaraan</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#1565c0"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>Anggota Tim Patroli</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#e53935"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span>Blok Rawan</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#ef6c00"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Rute Bank</a>
+              <a href="#" class="nav-link"><span class="sub-icon-wrap" style="color:#5e35b1"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Jadwal</a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <button class="nav-toggle" type="button">
+              <span class="nav-icon-wrap orange">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+              </span>
+              Laporan
+              <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-sub">
+              <a href="/review-patrol" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#0097a7"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M9 15l2 2 4-4"/></svg></span>
+                Tinjau Laporan Patroli
+              </a>
+              <a href="/hasil-laporan-patroli" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#43a047"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M9 15l2 2 4-4"/></svg></span>
+                Hasil Laporan Patroli
+              </a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <button class="nav-toggle" type="button">
+              <span class="nav-icon-wrap red">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </span>
+              Super Admin
+              <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="nav-sub">
+              <a href="/super-admin/thresholds" class="nav-link">
+                <span class="sub-icon-wrap" style="color:#e53935"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+                Ambang Batas &amp; Parameter
+              </a>
+            </div>
+          </div>
+        </nav>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <button class="menu-btn" type="button" id="menuBtn" aria-label="Menu">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+          </button>
+          <div class="page-title-wrap">
+            <div class="page-icon" id="pageIcon">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+            </div>
+            <div>
+              <h1 class="page-title" id="pageTitle">Kertas Kerja Infrastruktur</h1>
+              <p class="page-sub" id="pageSub">Smart Security Dashboard · PSM A</p>
+            </div>
+          </div>
+          <div class="filters">
+            <select class="filter-select" id="filterPsm" aria-label="PSM"></select>
+            <select class="filter-select" id="filterRegion" aria-label="Region"></select>
+            <select class="filter-select" id="filterEstate" aria-label="Estate"></select>
+            <select class="filter-select" id="filterYear" aria-label="Tahun"></select>
+            <select class="filter-select" id="filterMonth" aria-label="Bulan"></select>
+          </div>
+          <div class="topbar-right">
+            <span class="admin-badge">Admin</span>
+            <div class="user-pill">
+              <div class="user-avatar">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              23000984
+            </div>
+            <button class="logout-btn" type="button" aria-label="Logout">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="content-scroll">
+          <div class="stats-row" id="statsRow">
+            <div class="stat-card">
+              <div class="stat-icon total">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+              </div>
+              <div><div class="stat-label">Total Atribut</div><div class="stat-value" id="statTotal">0</div></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon ok">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <div><div class="stat-label">Status Baik</div><div class="stat-value ok" id="statOk">0</div></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon warn">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              </div>
+              <div><div class="stat-label">Perlu Perhatian</div><div class="stat-value warn" id="statWarn">0</div></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon bad">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </div>
+              <div><div class="stat-label">Kurang</div><div class="stat-value bad" id="statBad">0</div></div>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <a href="#" class="btn btn-back" id="backLink">← Kembali</a>
+              <span class="type-badge" id="typeBadge">Tech Infrastructure</span>
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-outline" id="btnEdit">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+              </button>
+              <button type="button" class="btn btn-primary" id="btnSave" disabled>
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Simpan
+              </button>
+            </div>
+          </div>
+
+          <div class="edit-banner" id="editBanner">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            Mode edit aktif — kolom <strong>Kebutuhan, Baik, Sedang, Rusak</strong> dapat diubah. Angka aktual didapatkan dari angka Baik dan Sedang, angka Rusak tidak mempengaruhi hitungan aktual.
+          </div>
+
+          <div class="table-card">
+            <div class="table-toolbar">
+              <div class="search-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-6-6"/></svg>
+                <input type="search" id="tableSearch" placeholder="Cari atribut..." autocomplete="off" />
+                <button type="button" class="search-clear" id="searchClear" aria-label="Hapus" hidden>×</button>
+              </div>
+              <div class="table-toolbar-actions">
+                <button type="button" class="btn btn-history" id="btnHistory">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Riwayat Perubahan
+                </button>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table id="dataTable" class="data-table sticky-head">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <div class="modal-overlay" id="historyModal" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-title" id="historyModalTitle">
+            <span class="modal-title-icon">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            Riwayat Perubahan
+          </div>
+          <button type="button" class="modal-close" id="historyModalClose" aria-label="Tutup">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>User</th>
+                <th>Atribut</th>
+                <th>Perubahan</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn" id="historyModalOk">Tutup</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "kerjaInfrastruktur_v2";
+      const DATA_VERSION = 2;
+
+      const TECH_ITEMS = [
+        { key: "cctv", atribut: "CCTV", unit: "Unit", kebutuhan: 5, baik: 4, sedang: 1, rusak: 0 },
+        { key: "drone", atribut: "Drone Security", unit: "Unit", kebutuhan: 7, baik: 6, sedang: 2, rusak: 0 }
+      ];
+
+      const BASIC_ROWS = [
+        { kategori: "Kendaraan Patroli", sub: "Mobil", unit: "Unit", kebutuhan: 2, baik: 1, sedang: 1, rusak: 0 },
+        { kategori: "Kendaraan Patroli", sub: "Motor", unit: "Unit", kebutuhan: 2, baik: 2, sedang: 0, rusak: 0 },
+        { kategori: "Pos Jaga", sub: "Pos Utama", unit: "Unit", kebutuhan: 1, baik: 1, sedang: 0, rusak: 0 },
+        { kategori: "Pos Jaga", sub: "Pos Akses", unit: "Unit", kebutuhan: 1, baik: 1, sedang: 0, rusak: 0 },
+        { kategori: "Pos Jaga", sub: "Pos Pringgan", unit: "Unit", kebutuhan: 2, baik: 2, sedang: 0, rusak: 0 },
+        { kategori: "Pos Jaga", sub: "Pos Pantau", unit: "Unit", kebutuhan: 1, baik: 1, sedang: 0, rusak: 0 },
+        { kategori: "Parit", sub: "6x6", unit: "Meter", kebutuhan: 1100, baik: 750, sedang: 50, rusak: 0 },
+        { kategori: "Parit", sub: "4x4", unit: "Meter", kebutuhan: 200, baik: 0, sedang: 0, rusak: 0 },
+        { kategori: "Parit", sub: "2x2", unit: "Meter", kebutuhan: 4000, baik: 3800, sedang: 200, rusak: 0 },
+        { kategori: "Portal", sub: "-", unit: "Unit", kebutuhan: 5, baik: 5, sedang: 0, rusak: 0 }
+      ];
+
+      const CAT_CLASS = {
+        "Kendaraan Patroli": "cat-kendaraan",
+        "Pos Jaga": "cat-pos",
+        "Parit": "cat-parit",
+        "Portal": "cat-portal"
+      };
+
+      const ESTATES = ["Estate A", "Estate B", "Estate C", "Estate D", "Estate E", "Estate F", "Estate G"];
+
+      const FILTER_TREE = {
+        "PSM A": {
+          Region A: ["ALL ESTATE", ...ESTATES]
+        },
+        "PSM B": {
+          RIAU: ["ALL ESTATE", "Estate S", "Estate AO", "TONE"]
+        },
+        "PSM C": {
+          KALIMANTAN: ["ALL ESTATE", "MINE", "PONE"]
+        }
+      };
+
+      const YEARS = ["2024", "2025", "2026"];
+      const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+      const DUMMY_HISTORY = [
+        { time: "03 Jun 2026, 10:24", user: "23000984", attr: "Parit · 6x6", field: "Baik", from: 720, to: 750 },
+        { time: "03 Jun 2026, 09:15", user: "23000984", attr: "Mobil Patroli", field: "Sedang", from: 0, to: 1 },
+        { time: "02 Jun 2026, 16:40", user: "23000112", attr: "Parit · 4x4", field: "Kebutuhan", from: 180, to: 200 },
+        { time: "02 Jun 2026, 14:05", user: "23000984", attr: "Portal", field: "Baik", from: 4, to: 5 },
+        { time: "01 Jun 2026, 11:30", user: "23000112", attr: "CCTV", field: "Kebutuhan", from: 4, to: 5 },
+        { time: "31 May 2026, 08:50", user: "23000984", attr: "Pos Utama", field: "Rusak", from: 1, to: 0 }
+      ];
+
+      const params = new URLSearchParams(window.location.search);
+      const type = params.get("type") === "basic" ? "basic" : "tech";
+      const estateParam = params.get("estate") || "Estate A";
+
+      const state = {
+        type,
+        psm: "PSM A",
+        region: "Region A",
+        estate: estateParam,
+        year: "2026",
+        month: "May",
+        editMode: false,
+        rows: [],
+        filtered: []
+      };
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return null;
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          version: DATA_VERSION,
+          type: state.type,
+          psm: state.psm,
+          region: state.region,
+          estate: state.estate,
+          year: state.year,
+          month: state.month,
+          rows: state.rows
+        }));
+      }
+
+      function defaultRows() {
+        if (type === "tech") {
+          return TECH_ITEMS.map(item => ({
+            id: item.key,
+            atribut: item.atribut,
+            kebutuhan: item.kebutuhan,
+            baik: item.baik,
+            sedang: item.sedang,
+            rusak: item.rusak,
+            satuan: item.unit
+          }));
+        }
+        return BASIC_ROWS.map((row, i) => ({
+          id: `basic-${i}`,
+          kategori: row.kategori,
+          sub: row.sub,
+          kebutuhan: row.kebutuhan,
+          baik: row.baik,
+          sedang: row.sedang,
+          rusak: row.rusak,
+          satuan: row.unit
+        }));
+      }
+
+      function initRows() {
+        const saved = loadState();
+        if (saved && saved.version === DATA_VERSION && saved.type === type && Array.isArray(saved.rows) && saved.rows.length) {
+          state.rows = saved.rows.map(r => recalcRow({ ...r }));
+          state.psm = saved.psm || "PSM A";
+          state.region = saved.region || "Region A";
+          state.estate = saved.estate || estateParam;
+          state.year = saved.year || "2026";
+          state.month = saved.month || "May";
+          return;
+        }
+        state.rows = defaultRows().map(r => recalcRow({ ...r }));
+      }
+
+      function updatePageSub() {
+        const estateLabel = state.estate === "ALL ESTATE" ? "Semua Estate" : state.estate;
+        document.getElementById("pageSub").textContent =
+          `Smart Security Dashboard · ${state.psm} · ${state.region} · ${estateLabel} · ${state.month} ${state.year}`;
+      }
+
+      function populateSelect(el, options, selected) {
+        el.innerHTML = options.map(o => `<option value="${o}" ${o === selected ? "selected" : ""}>${o}</option>`).join("");
+      }
+
+      function syncFilters() {
+        const psmEl = document.getElementById("filterPsm");
+        const regionEl = document.getElementById("filterRegion");
+        const estateEl = document.getElementById("filterEstate");
+        const yearEl = document.getElementById("filterYear");
+        const monthEl = document.getElementById("filterMonth");
+
+        populateSelect(psmEl, Object.keys(FILTER_TREE), state.psm);
+
+        const regions = Object.keys(FILTER_TREE[state.psm] || {});
+        if (!regions.includes(state.region)) state.region = regions[0];
+        populateSelect(regionEl, regions, state.region);
+
+        const estates = FILTER_TREE[state.psm][state.region] || ["ALL ESTATE"];
+        if (!estates.includes(state.estate)) state.estate = estates.includes(estateParam) ? estateParam : estates[0];
+        populateSelect(estateEl, estates, state.estate);
+
+        if (!YEARS.includes(state.year)) state.year = "2026";
+        if (!MONTHS.includes(state.month)) state.month = "May";
+        populateSelect(yearEl, YEARS, state.year);
+        populateSelect(monthEl, MONTHS, state.month);
+
+        updatePageSub();
+      }
+
+      function num(v) {
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n >= 0 ? n : 0;
+      }
+
+      function recalcRow(row) {
+        const kebutuhan = num(row.kebutuhan);
+        const baik = num(row.baik);
+        const sedang = num(row.sedang);
+        const rusak = num(row.rusak);
+        const aktual = baik + sedang;
+        const varian = kebutuhan - aktual;
+        let status = "bad";
+        if (aktual >= kebutuhan && rusak === 0) status = "ok";
+        else if (aktual >= kebutuhan && rusak > 0) status = "warn";
+        else status = "bad";
+        return {
+          ...row,
+          kebutuhan,
+          baik,
+          sedang,
+          rusak,
+          aktual,
+          varian,
+          status
+        };
+      }
+
+      function statusMarkup(status) {
+        if (status === "ok") {
+          return `<span class="status-pill status-ok"><span class="status-dot"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>Baik</span>`;
+        }
+        if (status === "warn") {
+          return `<span class="status-pill status-warn"><span class="status-dot"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 8v4M12 16h.01"/></svg></span>Perlu Perhatian</span>`;
+        }
+        return `<span class="status-pill status-bad"><span class="status-dot"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>Kurang</span>`;
+      }
+
+      function variantMarkup(v) {
+        const cls = v <= 0 ? "variant-pos" : "variant-neg";
+        const sign = v > 0 ? "+" : "";
+        return `<span class="variant-pill ${cls}">${sign}${v}</span>`;
+      }
+
+      function subMarkup(sub, kategori) {
+        if (sub === "-") return `<span class="sub-tag">—</span>`;
+        if (kategori === "Parit") return `<span class="sub-tag parit">${sub}</span>`;
+        return `<span class="sub-tag">${sub}</span>`;
+      }
+
+      function kategoriRowspans(rows) {
+        const spans = new Array(rows.length).fill(0);
+        for (let i = 0; i < rows.length; i++) {
+          if (i > 0 && rows[i].kategori === rows[i - 1].kategori) continue;
+          let count = 1;
+          while (i + count < rows.length && rows[i + count].kategori === rows[i].kategori) count++;
+          spans[i] = count;
+        }
+        return spans;
+      }
+
+      function updateStats() {
+        const counts = { ok: 0, warn: 0, bad: 0 };
+        state.rows.forEach(r => {
+          const s = recalcRow(r).status;
+          counts[s]++;
+        });
+        document.getElementById("statTotal").textContent = state.rows.length;
+        document.getElementById("statOk").textContent = counts.ok;
+        document.getElementById("statWarn").textContent = counts.warn;
+        document.getElementById("statBad").textContent = counts.bad;
+      }
+
+      function editableCell(row, field, val, extraCls) {
+        if (!state.editMode) {
+          return `<td class="num editable ${extraCls || ""}">${val}</td>`;
+        }
+        return `<td class="editable"><input type="number" class="cell-input" min="0" step="1" value="${val}" data-field="${field}" data-id="${row.id}"></td>`;
+      }
+
+      function renderHistory() {
+        document.getElementById("historyBody").innerHTML = DUMMY_HISTORY.map(h => `
+          <tr>
+            <td class="history-time">${h.time}</td>
+            <td class="history-user">${h.user}</td>
+            <td class="history-field">${h.attr}</td>
+            <td class="history-change">${h.field}: ${h.from} → <em>${h.to}</em></td>
+          </tr>`).join("");
+      }
+
+      function openHistoryModal() {
+        renderHistory();
+        document.getElementById("historyModal").classList.add("open");
+      }
+
+      function closeHistoryModal() {
+        document.getElementById("historyModal").classList.remove("open");
+      }
+
+      function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 3200);
+      }
+
+      function renderTable() {
+        const head = document.getElementById("tableHead");
+        const body = document.getElementById("tableBody");
+        const q = (document.getElementById("tableSearch").value || "").trim().toLowerCase();
+        state.filtered = state.rows.filter(row => {
+          const hay = `${row.kategori || ""} ${row.sub || ""} ${row.atribut || ""}`.toLowerCase();
+          return !q || hay.includes(q);
+        });
+
+        if (type === "tech") {
+          head.innerHTML = `
+            <tr>
+              <th class="text-left">Atribut</th>
+              <th>Kebutuhan</th>
+              <th>Aktual</th>
+              <th>Varian</th>
+              <th>Baik</th>
+              <th>Sedang</th>
+              <th>Rusak</th>
+              <th>Satuan</th>
+              <th style="position: relative;">
+                <div class="status-th">
+                  Status
+                  <span class="info-tooltip-wrap">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <span class="info-tooltip-box">
+                      <strong>Ketentuan Status:</strong><br>
+                      • <strong>Kurang</strong>: Aktual &lt; Kebutuhan<br>
+                      • <strong>Baik</strong>: Aktual &ge; Kebutuhan &amp; Rusak = 0<br>
+                      • <strong>Perlu Perhatian</strong>: Aktual &ge; Kebutuhan &amp; Rusak &gt; 0
+                    </span>
+                  </span>
+                </div>
+              </th>
+            </tr>`;
+          body.innerHTML = state.filtered.map(row => {
+            const ro = recalcRow(row);
+            const rusakCls = ro.rusak > 0 ? "row-rusak-warn" : "";
+            const rusakCellCls = ro.rusak > 0 ? "rusak" : "";
+            return `
+              <tr data-id="${row.id}" class="${state.editMode ? "editing" : ""} ${rusakCls} cat-tech">
+                <td class="text-left"><strong>${row.atribut}</strong></td>
+                ${editableCell(row, "kebutuhan", ro.kebutuhan)}
+                <td class="num aktual-val">${ro.aktual}</td>
+                <td class="num">${variantMarkup(ro.varian)}</td>
+                ${editableCell(row, "baik", ro.baik)}
+                ${editableCell(row, "sedang", ro.sedang)}
+                ${editableCell(row, "rusak", ro.rusak, rusakCellCls)}
+                <td><span class="unit-tag">${ro.satuan}</span></td>
+                <td class="status-cell">${statusMarkup(ro.status)}</td>
+              </tr>`;
+          }).join("");
+        } else {
+          head.innerHTML = `
+            <tr>
+              <th class="text-left">Kategori</th>
+              <th class="text-left">Sub Kategori</th>
+              <th>Kebutuhan</th>
+              <th>Aktual</th>
+              <th>Varian</th>
+              <th>Baik</th>
+              <th>Sedang</th>
+              <th>Rusak</th>
+              <th>Satuan</th>
+              <th style="position: relative;">
+                <div class="status-th">
+                  Status
+                  <span class="info-tooltip-wrap">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <span class="info-tooltip-box">
+                      <strong>Ketentuan Status:</strong><br>
+                      • <strong>Kurang</strong>: Aktual &lt; Kebutuhan<br>
+                      • <strong>Baik</strong>: Aktual &ge; Kebutuhan &amp; Rusak = 0<br>
+                      • <strong>Perlu Perhatian</strong>: Aktual &ge; Kebutuhan &amp; Rusak &gt; 0
+                    </span>
+                  </span>
+                </div>
+              </th>
+            </tr>`;
+          const spans = kategoriRowspans(state.filtered);
+          body.innerHTML = state.filtered.map((row, idx) => {
+            const ro = recalcRow(row);
+            const rusakCls = ro.rusak > 0 ? "row-rusak-warn" : "";
+            const rusakCellCls = ro.rusak > 0 ? "rusak" : "";
+            const catCls = CAT_CLASS[row.kategori] || "";
+            const kategoriCell = spans[idx]
+              ? `<td class="text-left kategori-cell" rowspan="${spans[idx]}">${row.kategori}</td>`
+              : "";
+            return `
+              <tr data-id="${row.id}" class="${state.editMode ? "editing" : ""} ${rusakCls} ${catCls}">
+                ${kategoriCell}
+                <td class="text-left">${subMarkup(row.sub, row.kategori)}</td>
+                ${editableCell(row, "kebutuhan", ro.kebutuhan)}
+                <td class="num aktual-val">${ro.aktual}</td>
+                <td class="num">${variantMarkup(ro.varian)}</td>
+                ${editableCell(row, "baik", ro.baik)}
+                ${editableCell(row, "sedang", ro.sedang)}
+                ${editableCell(row, "rusak", ro.rusak, rusakCellCls)}
+                <td><span class="unit-tag">${ro.satuan}</span></td>
+                <td class="status-cell">${statusMarkup(ro.status)}</td>
+              </tr>`;
+          }).join("");
+        }
+
+        updateStats();
+
+        const badge = document.getElementById("typeBadge");
+        badge.textContent = type === "tech" ? "Tech Infrastructure" : "Basic Infrastructure";
+        badge.className = `type-badge ${type}`;
+        document.getElementById("pageIcon").innerHTML = type === "tech"
+          ? '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 11-14h-9l1-6z"/></svg>'
+          : '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>';
+        document.getElementById("backLink").href = type === "tech" ? "techinfra-detail.html" : "basicinfra-detail.html";
+
+        updatePageSub();
+
+        document.getElementById("btnEdit").innerHTML = state.editMode
+          ? `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg> Batal Edit`
+          : `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit`;
+        document.getElementById("btnEdit").classList.toggle("active", state.editMode);
+        document.getElementById("btnSave").disabled = !state.editMode;
+        document.getElementById("editBanner").classList.toggle("show", state.editMode);
+      }
+
+      function bindEvents() {
+        document.getElementById("filterPsm").addEventListener("change", e => {
+          state.psm = e.target.value;
+          state.region = Object.keys(FILTER_TREE[state.psm])[0];
+          state.estate = FILTER_TREE[state.psm][state.region][0];
+          state.rows = defaultRows().map(r => recalcRow({ ...r }));
+          syncFilters();
+          renderTable();
+        });
+
+        document.getElementById("filterRegion").addEventListener("change", e => {
+          state.region = e.target.value;
+          state.estate = FILTER_TREE[state.psm][state.region][0];
+          state.rows = defaultRows().map(r => recalcRow({ ...r }));
+          syncFilters();
+          renderTable();
+        });
+
+        document.getElementById("filterEstate").addEventListener("change", e => {
+          state.estate = e.target.value;
+          saveState();
+          updatePageSub();
+          renderTable();
+          showToast(`Filter estate: ${state.estate === "ALL ESTATE" ? "Semua Estate" : state.estate}`);
+        });
+
+        document.getElementById("filterYear").addEventListener("change", e => {
+          state.year = e.target.value;
+          saveState();
+          updatePageSub();
+          showToast(`Periode: ${state.month} ${state.year}`);
+        });
+
+        document.getElementById("filterMonth").addEventListener("change", e => {
+          state.month = e.target.value;
+          saveState();
+          updatePageSub();
+          showToast(`Periode: ${state.month} ${state.year}`);
+        });
+
+        document.getElementById("btnHistory").addEventListener("click", openHistoryModal);
+        document.getElementById("historyModalClose").addEventListener("click", closeHistoryModal);
+        document.getElementById("historyModalOk").addEventListener("click", closeHistoryModal);
+        document.getElementById("historyModal").addEventListener("click", e => {
+          if (e.target.id === "historyModal") closeHistoryModal();
+        });
+
+        document.getElementById("btnEdit").addEventListener("click", () => {
+          state.editMode = !state.editMode;
+          renderTable();
+        });
+
+        document.getElementById("btnSave").addEventListener("click", () => {
+          state.rows = state.rows.map(r => recalcRow({ ...r }));
+          saveState();
+          state.editMode = false;
+          renderTable();
+          showToast("Perubahan disimpan. Perhitungan diperbarui.");
+        });
+
+        document.getElementById("tableSearch").addEventListener("input", () => {
+          renderTable();
+          document.getElementById("searchClear").hidden = !document.getElementById("tableSearch").value;
+        });
+
+        document.getElementById("searchClear").addEventListener("click", () => {
+          document.getElementById("tableSearch").value = "";
+          document.getElementById("searchClear").hidden = true;
+          renderTable();
+        });
+
+        document.getElementById("tableBody").addEventListener("input", e => {
+          if (!e.target.classList.contains("cell-input")) return;
+          const rowId = e.target.dataset.id;
+          const field = e.target.dataset.field;
+          const idx = state.rows.findIndex(r => r.id === rowId);
+          if (idx < 0) return;
+          state.rows[idx] = recalcRow({ ...state.rows[idx], [field]: num(e.target.value) });
+          renderTable();
+        });
+
+        document.getElementById("menuBtn").addEventListener("click", () => {
+          document.getElementById("sidebar").classList.toggle("open");
+        });
+
+        document.querySelectorAll(".nav-toggle").forEach(btn => {
+          btn.addEventListener("click", () => btn.closest(".nav-group").classList.toggle("open"));
+        });
+      }
+
+      initRows();
+      syncFilters();
+      bindEvents();
+      renderTable();
+    </script>
+  </body>
+</html>
