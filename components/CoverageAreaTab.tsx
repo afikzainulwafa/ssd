@@ -18,7 +18,32 @@ import {
 } from '@/lib/selectors'
 import { MOCK_ESTATES, MOCK_VEHICLES } from '@/lib/mock-database'
 import dynamic from 'next/dynamic'
+import { ShieldAlert, Layers, Info, Check } from 'lucide-react'
 import { MapMetricMode, MapFilterType, getBlockBucket } from './CoverageBlockMap'
+
+// Threshold helper for Aktivitas di Area Rawan (strictly per Section 3):
+// x >= 60% : Hijau (#16a34a) - Rendah
+// 50% <= x < 60% : Amber (#d97706) - Sedang
+// x < 50% : Merah (#dc2626) - Tinggi
+export const getAktivitasThresholdColor = (pct: number | null): string => {
+  if (pct === null || isNaN(pct)) return '#94a3b8'
+  if (pct >= 60.0) return '#16a34a'
+  if (pct >= 50.0) return '#d97706'
+  return '#dc2626'
+}
+
+export const getAktivitasThresholdBadge = (pct: number | null): { label: string; bg: string; color: string; border: string } => {
+  if (pct === null || isNaN(pct)) {
+    return { label: 'Belum ada data', bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' }
+  }
+  if (pct >= 60.0) {
+    return { label: 'Rendah (≥60%)', bg: '#dcfce7', color: '#16a34a', border: '#bbf7d0' }
+  }
+  if (pct >= 50.0) {
+    return { label: 'Sedang (50–<60%)', bg: '#fef3c7', color: '#d97706', border: '#fde68a' }
+  }
+  return { label: 'Tinggi (<50%)', bg: '#fee2e2', color: '#dc2626', border: '#fecaca' }
+}
 
 const CoverageBlockMap = dynamic(() => import('./CoverageBlockMap'), {
   ssr: false,
@@ -298,117 +323,275 @@ export default function CoverageAreaTab({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
 
-      {/* 1. TOP SECTION: COMBINED COMPACT SUMMARY KPI CONTAINER WITH INFO POPUP BUTTON */}
+      {/* 1. TOP SECTION: DUA CARD METRIK SEBAGAI SATU-SATUNYA PEMILIH */}
       <div style={{
-        background: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #cbd5e1',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        padding: '0.85rem 1rem',
-        position: 'relative'
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '16px',
+        width: '100%',
+        fontFamily: "'Poppins', sans-serif"
       }}>
-        {/* Compact Top-Right Info Formula Button */}
-        <button
-          type="button"
-          onClick={() => setShowInfoModal(true)}
-          style={{
-            position: 'absolute',
-            top: '0.75rem',
-            right: '0.75rem',
-            background: '#f1f5f9',
-            border: '1px solid #cbd5e1',
-            borderRadius: '50%',
-            width: '26px',
-            height: '26px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: 'bold',
-            color: '#2563eb',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-            zIndex: 5
+        {/* Card 1: Aktivitas di Area Rawan */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-pressed={selectedMetric === 'Aktivitas'}
+          onClick={() => setSelectedMetric('Aktivitas')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setSelectedMetric('Aktivitas')
+            }
           }}
-          title="Lihat formula & ketentuan kualifikasi coverage"
-          aria-label="Informasi Formula"
+          style={{
+            background: selectedMetric === 'Aktivitas' ? '#eff6ff' : '#ffffff',
+            borderRadius: '12px',
+            border: selectedMetric === 'Aktivitas' ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+            boxShadow: selectedMetric === 'Aktivitas' ? '0 2px 8px rgba(37,99,235,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            minHeight: '148px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            position: 'relative',
+            outline: 'none'
+          }}
+          className="coverage-kpi-card"
         >
-          ℹ
-        </button>
-
-        {/* Shared Two Summaries Side-by-Side */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '0.75rem',
-          marginRight: '2rem'
-        }}>
-          {/* Summary 1: Aktivitas di Area Rawan */}
-          <div
-            onClick={() => setSelectedMetric('Aktivitas')}
-            style={{
-              padding: '0.75rem 0.85rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              background: selectedMetric === 'Aktivitas' ? '#eff6ff' : '#fafafa',
-              border: selectedMetric === 'Aktivitas' ? '2px solid #2563eb' : '1px solid #e2e8f0',
-              transition: 'all 0.15s ease',
-              boxShadow: selectedMetric === 'Aktivitas' ? '0 2px 8px rgba(37,99,235,0.12)' : 'none'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: selectedMetric === 'Aktivitas' ? '#1e40af' : '#475569' }}>
-                Aktivitas di Area Rawan
+          {/* Row 1: Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: '#eff6ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#2563eb',
+                flexShrink: 0
+              }}>
+                <ShieldAlert size={18} strokeWidth={2} />
               </div>
-              {selectedMetric === 'Aktivitas' && (
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', background: '#2563eb', color: '#fff', borderRadius: '10px' }}>
-                  AKTIF
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#1e293b' }}>
+                  Aktivitas di Area Rawan
                 </span>
-              )}
+                <div
+                  title="Formula: (Total kunjungan patroli di blok rawan ÷ Total seluruh kunjungan patroli) × 100%&#10;&#10;Threshold Kategori:&#10;• ≥60%: Rendah (Hijau)&#10;• 50–<60%: Sedang (Amber)&#10;• <50%: Tinggi (Merah)"
+                  style={{ cursor: 'help', display: 'flex', alignItems: 'center', color: '#94a3b8' }}
+                  onClick={(e) => { e.stopPropagation(); setShowInfoModal(true); }}
+                >
+                  <Info size={14} />
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', margin: '0.2rem 0' }}>
-              <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
-                {formatPct(cardAAktivitasPct)}
+
+            {selectedMetric === 'Aktivitas' ? (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: '#dbeafe',
+                color: '#1d4ed8',
+                border: '1px solid #bfdbfe'
+              }}>
+                <Check size={12} strokeWidth={3} />
+                Terpilih
               </span>
-              <span style={{ fontSize: '0.725rem', color: '#64748b', fontWeight: 500 }}>Porsi Rawan</span>
-            </div>
-            <div style={{ fontSize: '0.725rem', color: '#475569' }}>
-              🔴 <strong>{formatNum(coverageMetrics.rawanCount)}</strong> rawan dari <strong>{formatNum(coverageMetrics.totalValidCoverage)}</strong> total valid
-            </div>
+            ) : (
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 500,
+                color: '#94a3b8',
+                padding: '2px 8px'
+              }}>
+                Pilih Metrik
+              </span>
+            )}
           </div>
 
-          {/* Summary 2: Cakupan Blok Rawan */}
-          <div
-            onClick={() => setSelectedMetric('Cakupan')}
-            style={{
-              padding: '0.75rem 0.85rem',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              background: selectedMetric === 'Cakupan' ? '#eff6ff' : '#fafafa',
-              border: selectedMetric === 'Cakupan' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-              transition: 'all 0.15s ease',
-              boxShadow: selectedMetric === 'Cakupan' ? '0 2px 8px rgba(37,99,235,0.12)' : 'none'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: selectedMetric === 'Cakupan' ? '#1e40af' : '#475569' }}>
-                Cakupan Blok Rawan
-              </div>
-              {selectedMetric === 'Cakupan' && (
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', background: '#2563eb', color: '#fff', borderRadius: '10px' }}>
-                  AKTIF
-                </span>
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', margin: '0.2rem 0' }}>
-              <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
-                {formatPct(cardBCakupanPct)}
+          {/* Row 2: Main Stat */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
+            <span style={{
+              fontSize: '32px',
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: cardAAktivitasPct !== null ? getAktivitasThresholdColor(cardAAktivitasPct) : '#64748b'
+            }}>
+              {formatPct(cardAAktivitasPct)}
+            </span>
+            {cardAAktivitasPct !== null && (
+              <span style={{
+                fontSize: '11.5px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: getAktivitasThresholdBadge(cardAAktivitasPct).bg,
+                color: getAktivitasThresholdBadge(cardAAktivitasPct).color,
+                border: `1px solid ${getAktivitasThresholdBadge(cardAAktivitasPct).border}`
+              }}>
+                Prioritas {getAktivitasThresholdBadge(cardAAktivitasPct).label}
               </span>
-              <span style={{ fontSize: '0.725rem', color: '#64748b', fontWeight: 500 }}>Blok Ter-cover</span>
+            )}
+          </div>
+
+          {/* Row 3: Label Detail */}
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', marginBottom: '10px' }}>
+            {coverageMetrics.totalValidCoverage > 0
+              ? `${formatNum(coverageMetrics.rawanCount)} dari ${formatNum(coverageMetrics.totalValidCoverage)} kunjungan`
+              : '— / Belum ada data kunjungan'}
+          </div>
+
+          {/* Row 4: Progress Bar (6px, bottom) */}
+          <div style={{
+            width: '100%',
+            height: '6px',
+            background: '#e2e8f0',
+            borderRadius: '3px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${Math.min(100, Math.max(0, cardAAktivitasPct || 0))}%`,
+              height: '100%',
+              borderRadius: '3px',
+              background: cardAAktivitasPct !== null ? getAktivitasThresholdColor(cardAAktivitasPct) : '#cbd5e1',
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+        </div>
+
+        {/* Card 2: Cakupan Blok Rawan */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-pressed={selectedMetric === 'Cakupan'}
+          onClick={() => setSelectedMetric('Cakupan')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setSelectedMetric('Cakupan')
+            }
+          }}
+          style={{
+            background: selectedMetric === 'Cakupan' ? '#eff6ff' : '#ffffff',
+            borderRadius: '12px',
+            border: selectedMetric === 'Cakupan' ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+            boxShadow: selectedMetric === 'Cakupan' ? '0 2px 8px rgba(37,99,235,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            minHeight: '148px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            position: 'relative',
+            outline: 'none'
+          }}
+          className="coverage-kpi-card"
+        >
+          {/* Row 1: Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: '#eff6ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#2563eb',
+                flexShrink: 0
+              }}>
+                <Layers size={18} strokeWidth={2} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#1e293b' }}>
+                  Cakupan Blok Rawan
+                </span>
+                <div
+                  title="Formula: (Jumlah blok rawan unik yang pernah dikunjungi (≥1 kali) ÷ Total seluruh blok rawan dalam scope) × 100%&#10;&#10;Mengukur proporsi inventaris blok rawan yang ter-cover patroli."
+                  style={{ cursor: 'help', display: 'flex', alignItems: 'center', color: '#94a3b8' }}
+                  onClick={(e) => { e.stopPropagation(); setShowInfoModal(true); }}
+                >
+                  <Info size={14} />
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: '0.725rem', color: '#475569' }}>
-              ✅ <strong>{formatNum(coverageMetrics.rawanDistribution.coveredRawanBlocks)}</strong> dari <strong>{formatNum(coverageMetrics.rawanDistribution.totalRawanBlocks)}</strong> blok rawan (≥1 coverage)
-            </div>
+
+            {selectedMetric === 'Cakupan' ? (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: '#dbeafe',
+                color: '#1d4ed8',
+                border: '1px solid #bfdbfe'
+              }}>
+                <Check size={12} strokeWidth={3} />
+                Terpilih
+              </span>
+            ) : (
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 500,
+                color: '#94a3b8',
+                padding: '2px 8px'
+              }}>
+                Pilih Metrik
+              </span>
+            )}
+          </div>
+
+          {/* Row 2: Main Stat */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
+            <span style={{
+              fontSize: '32px',
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: '#0f172a' // Navy
+            }}>
+              {formatPct(cardBCakupanPct)}
+            </span>
+            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+              Blok Ter-cover
+            </span>
+          </div>
+
+          {/* Row 3: Label Detail */}
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', marginBottom: '10px' }}>
+            {coverageMetrics.rawanDistribution.totalRawanBlocks > 0
+              ? `${formatNum(coverageMetrics.rawanDistribution.coveredRawanBlocks)} dari ${formatNum(coverageMetrics.rawanDistribution.totalRawanBlocks)} blok`
+              : '— / Belum ada inventori blok'}
+          </div>
+
+          {/* Row 4: Progress Bar (6px, bottom) */}
+          <div style={{
+            width: '100%',
+            height: '6px',
+            background: '#e2e8f0',
+            borderRadius: '3px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${Math.min(100, Math.max(0, cardBCakupanPct || 0))}%`,
+              height: '100%',
+              borderRadius: '3px',
+              background: '#2563eb', // Blue accent
+              transition: 'width 0.3s ease'
+            }} />
           </div>
         </div>
       </div>
@@ -418,47 +601,94 @@ export default function CoverageAreaTab({
         background: '#ffffff',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        padding: '1.25rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+        padding: '16px 20px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        fontFamily: "'Poppins', sans-serif"
       }}>
-        {/* Section Control Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
-              {activeViewMode === 'Perbandingan' ? `Analisis Perbandingan Coverage (${compData.scopeLabel})` : `Grafik Tren 6 Bulan Coverage (${compData.scopeLabel})`}
-            </div>
-            <div style={{ fontSize: '0.775rem', color: '#64748b', marginTop: '0.15rem' }}>
-              Metrik Aktif: <strong style={{ color: '#2563eb' }}>{selectedMetric === 'Aktivitas' ? 'Aktivitas di Area Rawan (% Porsi Rawan)' : 'Cakupan Blok Rawan (% Ter-cover)'}</strong>
+        {/* Chart Header - Matching Laporan section 2-row layout */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+          {/* Row 1: Title & Controls */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <h3 style={{
+              margin: 0,
+              fontSize: '18.5px',
+              fontWeight: 700,
+              color: '#172B4D',
+              lineHeight: 1.2
+            }}>
+              {activeViewMode === 'Perbandingan' ? 'Analisis Perbandingan Coverage Area' : 'Grafik Tren 6 Bulan Coverage Area'}
+            </h3>
+
+            {/* Mode Toggle Switch */}
+            <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              {(['Perbandingan', 'Tren 6 Bulan'] as const).map(mode => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleViewModeChange(mode)}
+                  style={{
+                    padding: '5px 12px',
+                    border: activeViewMode === mode ? '1px solid #bfdbfe' : 'none',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: activeViewMode === mode ? '#eff6ff' : 'transparent',
+                    color: activeViewMode === mode ? '#2563eb' : '#64748B',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {mode}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Mode Toggle Switch */}
-          <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.2rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-            {(['Perbandingan', 'Tren 6 Bulan'] as const).map(mode => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => handleViewModeChange(mode)}
-                style={{
-                  padding: '0.35rem 0.85rem',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.775rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  background: activeViewMode === mode ? '#ffffff' : 'transparent',
-                  color: activeViewMode === mode ? '#0f172a' : '#64748b',
-                  boxShadow: activeViewMode === mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                {mode}
-              </button>
-            ))}
+          {/* Row 2: Scope Label & Compact Legend Above Plot */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '12.5px', color: '#64748B' }}>
+              Scope: <strong>{compData.scopeLabel}</strong> · Metrik: <strong style={{ color: selectedMetric === 'Aktivitas' ? getAktivitasThresholdColor(cardAAktivitasPct) : '#2563eb' }}>
+                {selectedMetric === 'Aktivitas' ? 'Aktivitas di Area Rawan (% Porsi Rawan)' : 'Cakupan Blok Rawan (% Ter-cover)'}
+              </strong>
+            </div>
+
+            {/* Compact Legend above plot */}
+            {selectedMetric === 'Aktivitas' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#475569', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />
+                  <span>Rendah (≥60%)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
+                  <span>Sedang (50–&lt;60%)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />
+                  <span>Tinggi (&lt;50%)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
+                  <span>Non-Rawan</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#475569', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} />
+                  <span>Ter-cover (≥1×)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#cbd5e1', display: 'inline-block' }} />
+                  <span>Belum Ter-cover</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* VERTICAL 100% STACKED BAR CHART */}
-        <div style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div style={{ marginBottom: '1.25rem' }}>
           {activeViewMode === 'Perbandingan' ? (
             /* Perbandingan 100% Stacked Bar Chart */
             <div>
@@ -491,15 +721,15 @@ export default function CoverageAreaTab({
                         const rawanPct = hasData ? (cat.rawanVisits / totalVisits) * 100 : null
                         const nonRawanPct = hasData ? 100 - rawanPct! : null
 
-                        // Thresholds for Rawan Segment: >=60 Green, 50-<60 Yellow, <50 Red
-                        const rawanColor = rawanPct === null ? '#cbd5e1' : (rawanPct >= 60.0 ? '#16a34a' : (rawanPct >= 50.0 ? '#d97706' : '#dc2626'))
+                        // Strict threshold per Section 3: >=60 Green, 50-<60 Amber, <50 Red
+                        const rawanColor = getAktivitasThresholdColor(rawanPct)
                         const nonRawanColor = '#94a3b8'
 
                         const rawanHeightPx = hasData ? (rawanPct! / 100) * 225 : 0
                         const nonRawanHeightPx = hasData ? (nonRawanPct! / 100) * 225 : 0
 
                         const tooltipText = hasData
-                          ? `${cat.label}\n🔴 Rawan: ${formatNum(cat.rawanVisits)} (${formatPct(rawanPct)})\n⚪ Non-Rawan: ${formatNum(cat.nonRawanVisits)} (${formatPct(nonRawanPct)})\nTotal: ${formatNum(totalVisits)}`
+                          ? `${cat.label}\nRawan: ${formatNum(cat.rawanVisits)} (${formatPct(rawanPct)})\nNon-Rawan: ${formatNum(cat.nonRawanVisits)} (${formatPct(nonRawanPct)})\nTotal: ${formatNum(totalVisits)} kunjungan\nStatus: Prioritas ${getAktivitasThresholdBadge(rawanPct).label}`
                           : `${cat.label}\nTidak ada aktivitas patroli`
 
                         return (
@@ -528,8 +758,8 @@ export default function CoverageAreaTab({
                               borderRadius: '4px 4px 0 0',
                               overflow: 'hidden',
                               background: hasData ? 'transparent' : '#e2e8f0',
-                              border: isSelected ? '2.5px solid #f59e0b' : '1px solid #cbd5e1',
-                              boxShadow: isSelected ? '0 0 0 3px rgba(245,158,11,0.25)' : 'none'
+                              border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                              boxShadow: isSelected ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none'
                             }}>
                               {hasData ? (
                                 <>
@@ -565,7 +795,7 @@ export default function CoverageAreaTab({
                                 </>
                               ) : (
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.7rem' }}>
-                                  N/A
+                                  —
                                 </div>
                               )}
                             </div>
@@ -601,7 +831,7 @@ export default function CoverageAreaTab({
                         const uncoveredHeightPx = hasData ? (uncoveredPct! / 100) * 225 : 0
 
                         const tooltipText = hasData
-                          ? `${cat.label}\n🔵 Ter-cover: ${formatNum(cat.coveredRawanBlocks)} (${formatPct(coveredPct)})\n⚪ Belum Ter-cover: ${formatNum(cat.uncoveredRawanBlocks)} (${formatPct(uncoveredPct)})\nTotal Rawan: ${formatNum(totalRawan)}`
+                          ? `${cat.label}\nTer-cover: ${formatNum(cat.coveredRawanBlocks)} (${formatPct(coveredPct)})\nBelum Ter-cover: ${formatNum(cat.uncoveredRawanBlocks)} (${formatPct(uncoveredPct)})\nTotal Rawan: ${formatNum(totalRawan)} blok`
                           : `${cat.label}\nTidak ada inventory blok rawan`
 
                         return (
@@ -629,8 +859,8 @@ export default function CoverageAreaTab({
                               borderRadius: '4px 4px 0 0',
                               overflow: 'hidden',
                               background: hasData ? 'transparent' : '#e2e8f0',
-                              border: isSelected ? '2.5px solid #f59e0b' : '1px solid #cbd5e1',
-                              boxShadow: isSelected ? '0 0 0 3px rgba(245,158,11,0.25)' : 'none'
+                              border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                              boxShadow: isSelected ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none'
                             }}>
                               {hasData ? (
                                 <>
@@ -666,7 +896,7 @@ export default function CoverageAreaTab({
                                 </>
                               ) : (
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.7rem' }}>
-                                  N/A
+                                  —
                                 </div>
                               )}
                             </div>
@@ -689,41 +919,6 @@ export default function CoverageAreaTab({
                         )
                       }
                     })}
-                  </div>
-                </div>
-              )}
-
-              {/* Chart Legend */}
-              {selectedMetric === 'Aktivitas' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', fontSize: '0.75rem', color: '#475569', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.25rem' }}>
-                  <span style={{ fontWeight: 700, color: '#0f172a' }}>Threshold Scoring Area Rawan:</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#16a34a' }} />
-                    <span>Rendah (≥60%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#d97706' }} />
-                    <span>Sedang (50–&lt;60%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#dc2626' }} />
-                    <span>Tinggi (&lt;50%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.5rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#94a3b8' }} />
-                    <span>Gray: Non-Rawan</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', fontSize: '0.75rem', color: '#475569', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.25rem' }}>
-                  <span style={{ fontWeight: 700, color: '#0f172a' }}>Status Cakupan:</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#2563eb' }} />
-                    <span>Ter-cover (≥1 coverage)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#cbd5e1' }} />
-                    <span>Belum Ter-cover (Gray)</span>
                   </div>
                 </div>
               )}
@@ -754,14 +949,14 @@ export default function CoverageAreaTab({
                       const rawanPct = hasData ? (m.rawanVisits / totalVisits) * 100 : null
                       const nonRawanPct = hasData ? 100 - rawanPct! : null
 
-                      const rawanColor = rawanPct === null ? '#cbd5e1' : (rawanPct >= 60.0 ? '#16a34a' : (rawanPct >= 50.0 ? '#d97706' : '#dc2626'))
+                      const rawanColor = getAktivitasThresholdColor(rawanPct)
                       const nonRawanColor = '#94a3b8'
 
                       const rawanHeightPx = hasData ? (rawanPct! / 100) * 225 : 0
                       const nonRawanHeightPx = hasData ? (nonRawanPct! / 100) * 225 : 0
 
                       const tooltipText = hasData
-                        ? `${m.label} (${compData.scopeLabel})\n🔴 Rawan: ${formatNum(m.rawanVisits)} (${formatPct(rawanPct)})\n⚪ Non-Rawan: ${formatNum(m.nonRawanVisits)} (${formatPct(nonRawanPct)})\nTotal: ${formatNum(totalVisits)}`
+                        ? `${m.label} (${compData.scopeLabel})\nRawan: ${formatNum(m.rawanVisits)} (${formatPct(rawanPct)})\nNon-Rawan: ${formatNum(m.nonRawanVisits)} (${formatPct(nonRawanPct)})\nTotal: ${formatNum(totalVisits)} kunjungan\nStatus: Prioritas ${getAktivitasThresholdBadge(rawanPct).label}`
                         : `${m.label}\nTidak ada aktivitas patroli`
 
                       return (
@@ -789,8 +984,8 @@ export default function CoverageAreaTab({
                             borderRadius: '4px 4px 0 0',
                             overflow: 'hidden',
                             background: hasData ? 'transparent' : '#e2e8f0',
-                            border: isSelected ? '2.5px solid #f59e0b' : '1px solid #cbd5e1',
-                            boxShadow: isSelected ? '0 0 0 3px rgba(245,158,11,0.25)' : 'none'
+                            border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            boxShadow: isSelected ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none'
                           }}>
                             {hasData ? (
                               <>
@@ -823,7 +1018,7 @@ export default function CoverageAreaTab({
                               </>
                             ) : (
                               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.7rem' }}>
-                                N/A
+                                —
                               </div>
                             )}
                           </div>
@@ -854,7 +1049,7 @@ export default function CoverageAreaTab({
                       const uncoveredHeightPx = hasData ? (uncoveredPct! / 100) * 225 : 0
 
                       const tooltipText = hasData
-                        ? `${m.label} (${compData.scopeLabel})\n🔵 Ter-cover: ${formatNum(m.coveredRawanBlocks)} (${formatPct(coveredPct)})\n⚪ Belum Ter-cover: ${formatNum(m.uncoveredRawanBlocks)} (${formatPct(uncoveredPct)})\nTotal Rawan: ${formatNum(totalRawan)}`
+                        ? `${m.label} (${compData.scopeLabel})\nTer-cover: ${formatNum(m.coveredRawanBlocks)} (${formatPct(coveredPct)})\nBelum Ter-cover: ${formatNum(m.uncoveredRawanBlocks)} (${formatPct(uncoveredPct)})\nTotal Rawan: ${formatNum(totalRawan)} blok`
                         : `${m.label}\nTidak ada inventory blok rawan`
 
                       return (
@@ -882,8 +1077,8 @@ export default function CoverageAreaTab({
                             borderRadius: '4px 4px 0 0',
                             overflow: 'hidden',
                             background: hasData ? 'transparent' : '#e2e8f0',
-                            border: isSelected ? '2.5px solid #f59e0b' : '1px solid #cbd5e1',
-                            boxShadow: isSelected ? '0 0 0 3px rgba(245,158,11,0.25)' : 'none'
+                            border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            boxShadow: isSelected ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none'
                           }}>
                             {hasData ? (
                               <>
@@ -916,7 +1111,7 @@ export default function CoverageAreaTab({
                               </>
                             ) : (
                               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.7rem' }}>
-                                N/A
+                                —
                               </div>
                             )}
                           </div>
@@ -938,101 +1133,77 @@ export default function CoverageAreaTab({
                   })}
                 </div>
               </div>
-
-              {/* Chart Legend for Trend Mode */}
-              {selectedMetric === 'Aktivitas' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', fontSize: '0.75rem', color: '#475569', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.25rem' }}>
-                  <span style={{ fontWeight: 700, color: '#0f172a' }}>Threshold Porsi Rawan:</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#16a34a' }} />
-                    <span>Rendah (≥60%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#d97706' }} />
-                    <span>Sedang (50–&lt;60%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#dc2626' }} />
-                    <span>Tinggi (&lt;50%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.5rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#94a3b8' }} />
-                    <span>Gray: Non-Rawan</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', fontSize: '0.75rem', color: '#475569', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.25rem' }}>
-                  <span style={{ fontWeight: 700, color: '#0f172a' }}>Status Cakupan:</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#2563eb' }} />
-                    <span>Ter-cover (≥1 coverage)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#cbd5e1' }} />
-                    <span>Belum Ter-cover (Gray)</span>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
+      </div>
 
-        {/* SUMMARY TABLE BENEATH CHART (VISIBLE IN BOTH MODES) */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a' }}>
-              📋 Table Summary Breakdown ({activeViewMode})
+      {/* SUMMARY TABLE BENEATH CHART - MATCHING LAPORAN SECTION STYLING */}
+        <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+          <div style={{ padding: '0.75rem 1rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
+              {activeViewMode === 'Perbandingan'
+                ? `Tabel Breakdown Perbandingan Coverage (${compData.scopeLabel})`
+                : `Tabel Breakdown Tren 6 Bulan Coverage (${compData.scopeLabel})`}
             </div>
-            {drilldownState && (
-              <button
-                type="button"
-                onClick={() => setDrilldownState(null)}
-                style={{
-                  padding: '0.25rem 0.6rem',
-                  background: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: '4px',
-                  fontSize: '0.725rem',
-                  fontWeight: 700,
-                  color: '#1d4ed8',
-                  cursor: 'pointer'
-                }}
-              >
-                🔄 Clear Filter Selection ({drilldownState.entityLabel})
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                {activeViewMode === 'Perbandingan'
+                  ? `Menampilkan ${paginatedPerbandinganRows.length} dari ${compData.categories.length} ${compData.groupingType === 'Vehicle' ? 'Unit Kendaraan' : compData.groupingType}`
+                  : `Menampilkan ${paginatedTrendRows.length} dari ${trendData.rows.length} ${trendData.breakdownType === 'Vehicle' ? 'Unit Kendaraan' : trendData.breakdownType}`}
+              </div>
+              {drilldownState && (
+                <button
+                  type="button"
+                  onClick={() => setDrilldownState(null)}
+                  style={{
+                    padding: '0.2rem 0.5rem',
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '4px',
+                    fontSize: '0.725rem',
+                    fontWeight: 600,
+                    color: '#1d4ed8',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Reset Filter ({drilldownState.entityLabel})
+                </button>
+              )}
+            </div>
           </div>
 
           {activeViewMode === 'Perbandingan' ? (
             /* Perbandingan Table */
-            <div style={{ overflowX: 'auto' }}>
+            <div>
+              <div style={{ overflowX: 'auto' }}>
               <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.825rem' }}>
                 <thead>
-                  <tr style={{ background: '#f1f5f9', textTransform: 'uppercase', fontSize: '0.725rem', color: '#475569' }}>
-                    <th style={{ padding: '0.65rem', textAlign: 'left' }}>
+                  <tr style={{ background: '#e2e8f0', textTransform: 'uppercase', fontSize: '0.725rem', color: '#475569', fontWeight: 700 }}>
+                    <th style={{ padding: '0.65rem 0.8rem', textAlign: 'left' }}>
                       {compData.groupingType === 'Vehicle' ? 'Unit Kendaraan (Nopol)' : compData.groupingType}
                     </th>
 
                     {selectedMetric === 'Aktivitas' ? (
                       <React.Fragment>
-                        <th style={{ padding: '0.65rem', textAlign: 'right' }}>Coverage Rawan</th>
-                        <th style={{ padding: '0.65rem', textAlign: 'right' }}>Coverage Non-Rawan</th>
-                        <th style={{ padding: '0.65rem', textAlign: 'right' }}>Total Coverage</th>
-                        <th style={{ padding: '0.65rem', textAlign: 'center' }}>% Porsi Rawan</th>
+                        <th style={{ padding: '0.65rem 0.8rem', textAlign: 'right' }}>Coverage Rawan</th>
+                        <th style={{ padding: '0.65rem 0.8rem', textAlign: 'right' }}>Coverage Non-Rawan</th>
+                        <th style={{ padding: '0.65rem 0.8rem', textAlign: 'right' }}>Total Coverage</th>
+                        <th style={{ padding: '0.65rem 0.8rem', textAlign: 'center' }}>% Porsi Rawan</th>
                       </React.Fragment>
                     ) : (
                       <React.Fragment>
-                        <th style={{ padding: '0.65rem', textAlign: 'right' }}>Total Blok Rawan</th>
-                        <th style={{ padding: '0.65rem', textAlign: 'right' }}>Ter-cover</th>
-                        <th style={{ padding: '0.65rem', textAlign: 'right' }}>Belum Ter-cover</th>
-                        <th style={{ padding: '0.65rem', textAlign: 'center' }}>% Ter-cover</th>
+                        <th style={{ padding: '0.65rem 0.8rem', textAlign: 'right' }}>Total Blok Rawan</th>
+                        <th style={{ padding: '0.65rem 0.8rem', textAlign: 'right' }}>Ter-cover</th>
+                        <th style={{ padding: '0.65rem 0.8rem', textAlign: 'right' }}>Belum Ter-cover</th>
+                        <th style={{ padding: '0.65rem 0.8rem', textAlign: 'center' }}>% Ter-cover</th>
                       </React.Fragment>
                     )}
-                    <th style={{ padding: '0.65rem', textAlign: 'center' }}>Action</th>
+                    <th style={{ padding: '0.65rem 0.8rem', textAlign: 'center' }}>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedPerbandinganRows.map(row => {
+                  {paginatedPerbandinganRows.map((row, idx) => {
                     const isSelected = drilldownState?.entityId === row.id
                     return (
                       <tr
@@ -1040,12 +1211,12 @@ export default function CoverageAreaTab({
                         onClick={() => handleSelectEntityDrilldown(row.id, row.label)}
                         style={{
                           borderBottom: '1px solid #e2e8f0',
-                          background: isSelected ? '#fef3c7' : 'transparent',
+                          background: isSelected ? '#eff6ff' : (idx % 2 === 1 ? '#f8fafc' : '#ffffff'),
                           cursor: 'pointer',
                           transition: 'background 0.15s ease'
                         }}
                       >
-                        <td style={{ padding: '0.65rem', fontWeight: 700, color: '#0f172a' }}>
+                        <td style={{ padding: '0.65rem 0.8rem', fontWeight: 700, color: '#0f172a' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             {row.vehicleType && (
                               <span>{row.vehicleType === 'Car' ? '🚗' : '🏍️'}</span>
@@ -1059,43 +1230,62 @@ export default function CoverageAreaTab({
 
                         {selectedMetric === 'Aktivitas' ? (
                           <React.Fragment>
-                            <td style={{ padding: '0.65rem', textAlign: 'right', fontWeight: 600, color: '#dc2626' }}>
+                            {/* All counts strictly navy #0f172a */}
+                            <td style={{ padding: '0.65rem 0.8rem', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
                               {formatNum(row.rawanVisits)}
                             </td>
-                            <td style={{ padding: '0.65rem', textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>
+                            <td style={{ padding: '0.65rem 0.8rem', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
                               {formatNum(row.nonRawanVisits)}
                             </td>
-                            <td style={{ padding: '0.65rem', textAlign: 'right', fontWeight: 800 }}>
+                            <td style={{ padding: '0.65rem 0.8rem', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
                               {formatNum(row.totalVisits)}
                             </td>
-                            <td style={{ padding: '0.65rem', textAlign: 'center', fontWeight: 800, color: '#1e40af' }}>
+                            {/* Percentage follows Section 3 threshold color */}
+                            <td style={{
+                              padding: '0.65rem 0.8rem',
+                              textAlign: 'center',
+                              fontWeight: 800,
+                              color: row.aktivitasPct !== null ? getAktivitasThresholdColor(row.aktivitasPct) : '#64748b'
+                            }}>
                               {formatPct(row.aktivitasPct)}
                             </td>
                           </React.Fragment>
                         ) : (
                           <React.Fragment>
-                            <td style={{ padding: '0.65rem', textAlign: 'right', fontWeight: 600 }}>
+                            {/* All counts strictly navy #0f172a */}
+                            <td style={{ padding: '0.65rem 0.8rem', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
                               {formatNum(row.totalRawanBlocks)}
                             </td>
-                            <td style={{ padding: '0.65rem', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
+                            <td style={{ padding: '0.65rem 0.8rem', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
                               {formatNum(row.coveredRawanBlocks)}
                             </td>
-                            <td style={{ padding: '0.65rem', textAlign: 'right', fontWeight: 600, color: '#dc2626' }}>
+                            <td style={{ padding: '0.65rem 0.8rem', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
                               {formatNum(row.uncoveredRawanBlocks)}
                             </td>
-                            <td style={{ padding: '0.65rem', textAlign: 'center', fontWeight: 800, color: '#1e40af' }}>
+                            {/* Cakupan percentage remains navy */}
+                            <td style={{ padding: '0.65rem 0.8rem', textAlign: 'center', fontWeight: 800, color: '#0f172a' }}>
                               {formatPct(row.cakupanPct)}
                             </td>
                           </React.Fragment>
                         )}
 
-                        <td style={{ padding: '0.65rem', textAlign: 'center' }}>
+                        <td style={{ padding: '0.65rem 0.8rem', textAlign: 'center' }}>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleSelectEntityDrilldown(row.id, row.label); }}
-                            style={{ padding: '0.2rem 0.5rem', background: isSelected ? '#d97706' : '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.725rem', fontWeight: 600 }}
+                            style={{
+                              padding: '0.25rem 0.55rem',
+                              background: isSelected ? '#1d4ed8' : '#eff6ff',
+                              color: isSelected ? '#ffffff' : '#1d4ed8',
+                              border: '1px solid #bfdbfe',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '0.725rem',
+                              fontWeight: 600,
+                              transition: 'all 0.15s ease'
+                            }}
                           >
-                            {isSelected ? 'Selected' : 'Focus Map 🗺️'}
+                            {isSelected ? '✓ Terpilih' : 'Focus Map 🗺️'}
                           </button>
                         </td>
                       </tr>
@@ -1104,88 +1294,96 @@ export default function CoverageAreaTab({
                 </tbody>
                 <tfoot>
                   <tr style={{ background: '#f1f5f9', fontWeight: 800, borderTop: '2px solid #cbd5e1' }}>
-                    <td style={{ padding: '0.7rem 0.65rem' }}>Total Agregat Scope</td>
+                    <td style={{ padding: '0.75rem 0.8rem', color: '#0f172a' }}>Total Agregat Scope</td>
                     {selectedMetric === 'Aktivitas' ? (
                       <React.Fragment>
-                        <td style={{ padding: '0.7rem 0.65rem', textAlign: 'right', color: '#dc2626' }}>{formatNum(compData.totalAggregate.rawanVisits)}</td>
-                        <td style={{ padding: '0.7rem 0.65rem', textAlign: 'right', color: '#2563eb' }}>{formatNum(compData.totalAggregate.nonRawanVisits)}</td>
-                        <td style={{ padding: '0.7rem 0.65rem', textAlign: 'right' }}>{formatNum(compData.totalAggregate.totalVisits)}</td>
-                        <td style={{ padding: '0.7rem 0.65rem', textAlign: 'center', color: '#1e40af' }}>{formatPct(compData.totalAggregate.aktivitasPct)}</td>
+                        <td style={{ padding: '0.75rem 0.8rem', textAlign: 'right', color: '#0f172a' }}>{formatNum(compData.totalAggregate.rawanVisits)}</td>
+                        <td style={{ padding: '0.75rem 0.8rem', textAlign: 'right', color: '#0f172a' }}>{formatNum(compData.totalAggregate.nonRawanVisits)}</td>
+                        <td style={{ padding: '0.75rem 0.8rem', textAlign: 'right', color: '#0f172a' }}>{formatNum(compData.totalAggregate.totalVisits)}</td>
+                        <td style={{
+                          padding: '0.75rem 0.8rem',
+                          textAlign: 'center',
+                          color: compData.totalAggregate.aktivitasPct !== null ? getAktivitasThresholdColor(compData.totalAggregate.aktivitasPct) : '#64748b'
+                        }}>
+                          {formatPct(compData.totalAggregate.aktivitasPct)}
+                        </td>
                       </React.Fragment>
                     ) : (
                       <React.Fragment>
-                        <td style={{ padding: '0.7rem 0.65rem', textAlign: 'right' }}>{formatNum(compData.totalAggregate.totalRawanBlocks)}</td>
-                        <td style={{ padding: '0.7rem 0.65rem', textAlign: 'right', color: '#16a34a' }}>{formatNum(compData.totalAggregate.coveredRawanBlocks)}</td>
-                        <td style={{ padding: '0.7rem 0.65rem', textAlign: 'right', color: '#dc2626' }}>{formatNum(compData.totalAggregate.uncoveredRawanBlocks)}</td>
-                        <td style={{ padding: '0.7rem 0.65rem', textAlign: 'center', color: '#1e40af' }}>{formatPct(compData.totalAggregate.cakupanPct)}</td>
+                        <td style={{ padding: '0.75rem 0.8rem', textAlign: 'right', color: '#0f172a' }}>{formatNum(compData.totalAggregate.totalRawanBlocks)}</td>
+                        <td style={{ padding: '0.75rem 0.8rem', textAlign: 'right', color: '#0f172a' }}>{formatNum(compData.totalAggregate.coveredRawanBlocks)}</td>
+                        <td style={{ padding: '0.75rem 0.8rem', textAlign: 'right', color: '#0f172a' }}>{formatNum(compData.totalAggregate.uncoveredRawanBlocks)}</td>
+                        <td style={{ padding: '0.75rem 0.8rem', textAlign: 'center', color: '#0f172a' }}>{formatPct(compData.totalAggregate.cakupanPct)}</td>
                       </React.Fragment>
                     )}
-                    <td style={{ padding: '0.7rem 0.65rem', textAlign: 'center' }}>—</td>
+                    <td style={{ padding: '0.75rem 0.8rem', textAlign: 'center' }}>—</td>
                   </tr>
                 </tfoot>
               </table>
-
-              {/* Pagination Controls */}
-              {compData.categories.length > perbandinganPageSize && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.5rem', marginTop: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
-                  <div>Halaman {perbandinganPage} dari {Math.ceil(compData.categories.length / perbandinganPageSize)}</div>
-                  <div style={{ display: 'flex', gap: '0.3rem' }}>
-                    <button
-                      type="button"
-                      disabled={perbandinganPage === 1}
-                      onClick={() => setPerbandinganPage(p => Math.max(1, p - 1))}
-                      style={{ padding: '0.2rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', cursor: perbandinganPage === 1 ? 'not-allowed' : 'pointer' }}
-                    >
-                      Sebelumnya
-                    </button>
-                    <button
-                      type="button"
-                      disabled={perbandinganPage * perbandinganPageSize >= compData.categories.length}
-                      onClick={() => setPerbandinganPage(p => p + 1)}
-                      style={{ padding: '0.2rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', cursor: perbandinganPage * perbandinganPageSize >= compData.categories.length ? 'not-allowed' : 'pointer' }}
-                    >
-                      Berikutnya
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
-          ) : (
-            /* Tren 6 Bulan Table */
+
+            {/* Pagination Controls */}
+            {compData.categories.length > perbandinganPageSize && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 1rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#64748b' }}>
+                <div>Halaman {perbandinganPage} dari {Math.ceil(compData.categories.length / perbandinganPageSize)}</div>
+                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                  <button
+                    type="button"
+                    disabled={perbandinganPage === 1}
+                    onClick={() => setPerbandinganPage(p => Math.max(1, p - 1))}
+                    style={{ padding: '0.2rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', cursor: perbandinganPage === 1 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Sebelumnya
+                  </button>
+                  <button
+                    type="button"
+                    disabled={perbandinganPage * perbandinganPageSize >= compData.categories.length}
+                    onClick={() => setPerbandinganPage(p => p + 1)}
+                    style={{ padding: '0.2rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', cursor: perbandinganPage * perbandinganPageSize >= compData.categories.length ? 'not-allowed' : 'pointer' }}
+                  >
+                    Berikutnya
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Tren 6 Bulan Table */
+          <div>
             <div style={{ overflowX: 'auto' }}>
               <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.825rem' }}>
                 <thead>
-                  <tr style={{ background: '#f1f5f9', textTransform: 'uppercase', fontSize: '0.725rem', color: '#475569' }}>
-                    <th style={{ padding: '0.65rem', textAlign: 'left' }}>
+                  <tr style={{ background: '#e2e8f0', textTransform: 'uppercase', fontSize: '0.725rem', color: '#475569', fontWeight: 700 }}>
+                    <th style={{ padding: '0.65rem 0.8rem', textAlign: 'left' }}>
                       {trendData.breakdownType === 'Vehicle' ? 'Unit Kendaraan' : trendData.breakdownType}
                     </th>
                     {trendData.headers.map(h => (
                       <th
                         key={h.yearMonth}
                         onClick={() => handleSelectEntityDrilldown(compData.scopeLabel, h.label, h.yearMonth)}
-                        style={{ padding: '0.65rem', textAlign: 'center', cursor: 'pointer' }}
+                        style={{ padding: '0.65rem 0.8rem', textAlign: 'center', cursor: 'pointer' }}
                         title={`Klik untuk memfokuskan scope peta pada bulan ${h.label}`}
                       >
                         {h.label} {h.isPartialMonth ? '*' : ''}
                       </th>
                     ))}
-                    <th style={{ padding: '0.65rem', textAlign: 'center', background: '#e2e8f0' }}>Total 6-Bulan</th>
+                    <th style={{ padding: '0.65rem 0.8rem', textAlign: 'center', background: '#cbd5e1', color: '#1e293b' }}>Total 6-Bulan</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedTrendRows.map(row => {
+                  {paginatedTrendRows.map((row, idx) => {
                     const isRowSelected = drilldownState?.entityId === row.id && !drilldownState?.yearMonth
                     return (
                       <tr
                         key={row.id}
                         style={{
                           borderBottom: '1px solid #e2e8f0',
-                          background: isRowSelected ? '#fef3c7' : 'transparent'
+                          background: isRowSelected ? '#eff6ff' : (idx % 2 === 1 ? '#f8fafc' : '#ffffff')
                         }}
                       >
                         <td
                           onClick={() => handleSelectEntityDrilldown(row.id, row.label)}
-                          style={{ padding: '0.65rem', fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}
+                          style={{ padding: '0.65rem 0.8rem', fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             {row.vehicleType && <span>{row.vehicleType === 'Car' ? '🚗' : '🏍️'}</span>}
@@ -1200,8 +1398,12 @@ export default function CoverageAreaTab({
                           const valPct = selectedMetric === 'Aktivitas' ? m.aktivitasPct : m.cakupanPct
                           const isCellSelected = drilldownState?.cellKey === `${row.id}_${m.yearMonth}`
                           const tooltipText = selectedMetric === 'Aktivitas'
-                            ? `${row.label} (${m.label})\nRawan Coverage: ${formatNum(m.rawanVisits)} / ${formatNum(m.totalVisits)} total`
+                            ? `${row.label} (${m.label})\nRawan Coverage: ${formatNum(m.rawanVisits)} / ${formatNum(m.totalVisits)} total kunjungan\nStatus: Prioritas ${getAktivitasThresholdBadge(m.aktivitasPct).label}`
                             : `${row.label} (${m.label})\nBlok Ter-cover: ${formatNum(m.coveredRawanBlocks)} / ${formatNum(m.totalRawanBlocks)} total rawan`
+
+                          const cellColor = selectedMetric === 'Aktivitas'
+                            ? getAktivitasThresholdColor(valPct)
+                            : (valPct !== null ? '#0f172a' : '#94a3b8')
 
                           return (
                             <td
@@ -1209,21 +1411,29 @@ export default function CoverageAreaTab({
                               onClick={() => handleSelectEntityDrilldown(row.id, row.label, m.yearMonth)}
                               title={tooltipText}
                               style={{
-                                padding: '0.65rem',
+                                padding: '0.65rem 0.8rem',
                                 textAlign: 'center',
                                 fontWeight: 700,
                                 cursor: 'pointer',
-                                background: isCellSelected ? '#fde68a' : 'transparent'
+                                background: isCellSelected ? '#dbeafe' : 'transparent'
                               }}
                             >
-                              <span style={{ color: valPct !== null ? '#1e40af' : '#94a3b8' }}>
+                              <span style={{ color: cellColor }}>
                                 {formatPct(valPct)}
                               </span>
                             </td>
                           )
                         })}
 
-                        <td style={{ padding: '0.65rem', textAlign: 'center', fontWeight: 800, background: '#f1f5f9' }}>
+                        <td style={{
+                          padding: '0.65rem 0.8rem',
+                          textAlign: 'center',
+                          fontWeight: 800,
+                          background: '#f8fafc',
+                          color: selectedMetric === 'Aktivitas'
+                            ? getAktivitasThresholdColor(row.totalAktivitasPct)
+                            : '#0f172a'
+                        }}>
                           {formatPct(selectedMetric === 'Aktivitas' ? row.totalAktivitasPct : row.totalCakupanPct)}
                         </td>
                       </tr>
@@ -1232,46 +1442,62 @@ export default function CoverageAreaTab({
                 </tbody>
                 <tfoot>
                   <tr style={{ background: '#f1f5f9', fontWeight: 800, borderTop: '2px solid #cbd5e1' }}>
-                    <td style={{ padding: '0.7rem 0.65rem' }}>Total Agregat Scope</td>
+                    <td style={{ padding: '0.75rem 0.8rem', color: '#0f172a' }}>Total Agregat Scope</td>
                     {trendData.monthlyScopeAggregates.map(m => (
-                      <td key={m.yearMonth} style={{ padding: '0.7rem 0.65rem', textAlign: 'center', color: '#1e40af' }}>
+                      <td
+                        key={m.yearMonth}
+                        style={{
+                          padding: '0.75rem 0.8rem',
+                          textAlign: 'center',
+                          color: selectedMetric === 'Aktivitas'
+                            ? getAktivitasThresholdColor(m.aktivitasPct)
+                            : '#0f172a'
+                        }}
+                      >
                         {formatPct(selectedMetric === 'Aktivitas' ? m.aktivitasPct : m.cakupanPct)}
                       </td>
                     ))}
-                    <td style={{ padding: '0.7rem 0.65rem', textAlign: 'center', background: '#cbd5e1', color: '#1e40af' }}>
+                    <td style={{
+                      padding: '0.75rem 0.8rem',
+                      textAlign: 'center',
+                      background: '#cbd5e1',
+                      color: selectedMetric === 'Aktivitas'
+                        ? getAktivitasThresholdColor(trendData.overallScopeAggregate.aktivitasPct)
+                        : '#0f172a'
+                    }}>
                       {formatPct(selectedMetric === 'Aktivitas' ? trendData.overallScopeAggregate.aktivitasPct : trendData.overallScopeAggregate.cakupanPct)}
                     </td>
                   </tr>
                 </tfoot>
               </table>
-
-              {/* Pagination Controls */}
-              {trendData.rows.length > trendPageSize && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.5rem', marginTop: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
-                  <div>Halaman {trendPage} dari {Math.ceil(trendData.rows.length / trendPageSize)}</div>
-                  <div style={{ display: 'flex', gap: '0.3rem' }}>
-                    <button
-                      type="button"
-                      disabled={trendPage === 1}
-                      onClick={() => setTrendPage(p => Math.max(1, p - 1))}
-                      style={{ padding: '0.2rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', cursor: trendPage === 1 ? 'not-allowed' : 'pointer' }}
-                    >
-                      Sebelumnya
-                    </button>
-                    <button
-                      type="button"
-                      disabled={trendPage * trendPageSize >= trendData.rows.length}
-                      onClick={() => setTrendPage(p => p + 1)}
-                      style={{ padding: '0.2rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', cursor: trendPage * trendPageSize >= trendData.rows.length ? 'not-allowed' : 'pointer' }}
-                    >
-                      Berikutnya
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
-          )}
-        </div>
+
+            {/* Pagination Controls */}
+            {trendData.rows.length > trendPageSize && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 1rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#64748b' }}>
+                <div>Halaman {trendPage} dari {Math.ceil(trendData.rows.length / trendPageSize)}</div>
+                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                  <button
+                    type="button"
+                    disabled={trendPage === 1}
+                    onClick={() => setTrendPage(p => Math.max(1, p - 1))}
+                    style={{ padding: '0.2rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', cursor: trendPage === 1 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Sebelumnya
+                  </button>
+                  <button
+                    type="button"
+                    disabled={trendPage * trendPageSize >= trendData.rows.length}
+                    onClick={() => setTrendPage(p => p + 1)}
+                    style={{ padding: '0.2rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', cursor: trendPage * trendPageSize >= trendData.rows.length ? 'not-allowed' : 'pointer' }}
+                  >
+                    Berikutnya
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 3. BOTTOM SECTION: DETAIL COVERAGE MAP (CONDITIONALLY DISPLAYED BASED ON REQ 7) */}

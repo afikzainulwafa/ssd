@@ -8,7 +8,17 @@ import CoverageAreaTab from '@/components/CoverageAreaTab'
 import RouteEffectivenessTab from '@/components/RouteEffectivenessTab'
 import NormalRusakSection from '@/components/NormalRusakSection'
 import { UserRole, buildAllDamageIncidents } from '@/lib/damage-incidents'
-import { AlertCircle, AlertTriangle } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  FileText,
+  Shield,
+  BookOpen,
+  Shuffle,
+  ChevronRight,
+  BarChart2,
+  TrendingUp
+} from 'lucide-react'
 import {
   selectReportsKpis,
   selectReasonBreakdown,
@@ -58,82 +68,82 @@ function SubmissionVerticalBarChart({
     return <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Tidak ada data laporan dalam scope ini.</div>
   }
 
-  const PLOT_HEIGHT = 240
+  const PLOT_HEIGHT = 200
 
-  const renderPriorityLegend = () => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flexWrap: 'wrap', gap: '0.85rem', marginBottom: '0.85rem', fontSize: '0.75rem', padding: '0.4rem 0.65rem', background: '#ffffff', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-      <span style={{ fontWeight: 700, color: '#334155' }}>Prioritas Disiplin Upload:</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#15803d', fontWeight: 600 }}>
-        <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#16a34a', display: 'inline-block' }} />
-        Rendah (≥100%)
-      </span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#b45309', fontWeight: 600 }}>
-        <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#d97706', display: 'inline-block' }} />
-        Sedang (≥90%–&lt;100%)
-      </span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#b91c1c', fontWeight: 600 }}>
-        <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#dc2626', display: 'inline-block' }} />
-        Tinggi (&lt;90%)
-      </span>
-      {chartMeasureMode === 'Jumlah Laporan' && (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#475569', fontWeight: 600, borderLeft: '1px solid #cbd5e1', paddingLeft: '0.85rem' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#94a3b8', display: 'inline-block' }} />
-          Target
-        </span>
-      )}
-    </div>
-  )
+  const getBarColor = (pct: number | null) => {
+    if (pct === null) return '#cbd5e1'
+    if (pct >= 100) return '#36946C'
+    if (pct >= 90) return '#D99A28'
+    return '#DC5B60'
+  }
 
   if (chartMeasureMode === 'Persentase (%)') {
     const ticks = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0]
     return (
-      <div>
-        {renderPriorityLegend()}
-        <div style={{ position: 'relative', height: `${PLOT_HEIGHT + 55}px`, paddingLeft: '45px', paddingTop: '25px', paddingBottom: '30px' }}>
-          {/* Y-Axis Ticks */}
-          <div style={{ position: 'absolute', left: 0, top: '25px', height: `${PLOT_HEIGHT}px`, width: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', borderRight: '1.5px solid #64748b', paddingRight: '6px' }}>
-            {ticks.map(t => (
-              <span key={t} style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600, transform: 'translateY(-50%)', lineHeight: 1 }}>{t}%</span>
-            ))}
-          </div>
+      <div style={{ position: 'relative', height: `${PLOT_HEIGHT + 36}px`, paddingLeft: '45px', paddingTop: '16px', paddingBottom: '20px', width: '100%', boxSizing: 'border-box' }}>
+        {/* Y-Axis Ticks */}
+        <div style={{ position: 'absolute', left: 0, top: '16px', height: `${PLOT_HEIGHT}px`, width: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', borderRight: '1px solid #cbd5e1', paddingRight: '8px' }}>
+          {ticks.map(t => (
+            <span key={t} style={{ fontSize: '0.675rem', color: '#64748B', fontWeight: 500, transform: 'translateY(-50%)', lineHeight: 1 }}>{t}%</span>
+          ))}
+        </div>
 
-          {/* Horizontal Gridlines */}
-          <div style={{ position: 'absolute', left: '45px', right: 0, top: '25px', height: `${PLOT_HEIGHT}px`, pointerEvents: 'none' }}>
-            {ticks.map((t, idx) => (
-              <div key={t} style={{ position: 'absolute', top: `${(idx / (ticks.length - 1)) * 100}%`, left: 0, right: 0, borderTop: t === 0 ? '1.5px solid #64748b' : '1px dashed #e2e8f0' }} />
-            ))}
-          </div>
+        {/* Horizontal Gridlines */}
+        <div style={{ position: 'absolute', left: '45px', right: 0, top: '16px', height: `${PLOT_HEIGHT}px`, pointerEvents: 'none' }}>
+          {ticks.map((t, idx) => (
+            <div key={t} style={{ position: 'absolute', top: `${(idx / (ticks.length - 1)) * 100}%`, left: 0, right: 0, borderTop: t === 0 ? '1.5px solid #cbd5e1' : '1px dashed #e2e8f0' }} />
+          ))}
+        </div>
 
-          {/* Bars Container */}
-          <div style={{ position: 'relative', height: `${PLOT_HEIGHT}px`, display: 'grid', gridTemplateColumns: `repeat(${categories.length}, 1fr)`, gap: '0.75rem' }}>
-            {categories.map(cat => {
-              const pctVal = cat.compliancePct !== null ? cat.compliancePct : 0
-              const barHeightPx = Math.min(PLOT_HEIGHT, Math.max(0, (pctVal / 100) * PLOT_HEIGHT))
-              const isSelected = selectedCategoryId === cat.id
+        {/* Bars Container */}
+        <div style={{ position: 'relative', height: `${PLOT_HEIGHT}px`, display: 'grid', gridTemplateColumns: `repeat(${categories.length}, 1fr)`, gap: '0.75rem' }}>
+          {categories.map(cat => {
+            const pctVal = cat.compliancePct !== null ? cat.compliancePct : 0
+            const barHeightPx = Math.min(PLOT_HEIGHT, Math.max(0, (pctVal / 100) * PLOT_HEIGHT))
+            const isSelected = selectedCategoryId === cat.id
 
-              return (
-                <div
-                  key={cat.id}
-                  onClick={() => onSelectCategory(cat)}
-                  title={`${cat.label}\nDisiplin Upload: ${cat.compliancePct !== null ? formatPercentage(cat.compliancePct) : 'N/A'}\nSubmitted: ${formatCount(cat.actualReports)} / Target: ${formatCount(cat.targetReports)} laporan${cat.partialTooltip ? '\n' + cat.partialTooltip : ''}`}
-                  style={{ position: 'relative', height: `${PLOT_HEIGHT}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', cursor: 'pointer', opacity: isSelected ? 1 : (selectedCategoryId ? 0.6 : 1) }}
-                >
-                  {/* Value label positioned above bar top */}
-                  <div style={{ position: 'absolute', bottom: `${barHeightPx + 4}px`, fontSize: '0.65rem', fontWeight: 700, color: cat.compliancePct !== null ? cat.thresholdColor : '#94a3b8', whiteSpace: 'nowrap' }}>
-                    {cat.compliancePct !== null ? formatPercentage(cat.compliancePct) : 'N/A'}
-                  </div>
-
-                  {/* Actual Bar Element */}
-                  <div style={{ width: '100%', maxWidth: '40px', height: `${barHeightPx}px`, background: cat.compliancePct !== null ? cat.thresholdColor : '#cbd5e1', borderRadius: '4px 4px 0 0', transition: 'height 0.3s ease', border: isSelected ? '2px solid #0f172a' : 'none', boxShadow: isSelected ? '0 0 0 2px rgba(15,23,42,0.2)' : 'none' }} />
-
-                  {/* X-axis Category Label */}
-                  <div style={{ position: 'absolute', top: `${PLOT_HEIGHT + 6}px`, fontSize: '0.675rem', color: isSelected ? '#0f172a' : '#334155', fontWeight: isSelected ? 800 : 600, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                    {cat.label}
-                  </div>
+            return (
+              <div
+                key={cat.id}
+                onClick={() => onSelectCategory(cat)}
+                title={`${cat.label}\nDisiplin Upload: ${cat.compliancePct !== null ? formatPercentage(cat.compliancePct) : 'N/A'}\nSubmitted: ${formatCount(cat.actualReports)} / Target: ${formatCount(cat.targetReports)} laporan${cat.partialTooltip ? '\n' + cat.partialTooltip : ''}`}
+                style={{ position: 'relative', height: `${PLOT_HEIGHT}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', cursor: 'pointer', opacity: isSelected ? 1 : (selectedCategoryId ? 0.6 : 1) }}
+              >
+                {/* Value label positioned above bar top */}
+                <div style={{ position: 'absolute', bottom: `${barHeightPx + 4}px`, fontSize: '0.72rem', fontWeight: 600, color: '#172B4D', whiteSpace: 'nowrap' }}>
+                  {cat.compliancePct !== null ? formatPercentage(cat.compliancePct) : 'N/A'}
                 </div>
-              )
-            })}
-          </div>
+
+                {/* Actual Bar Element */}
+                <div style={{
+                  width: '100%',
+                  maxWidth: '44px',
+                  height: `${barHeightPx}px`,
+                  background: getBarColor(cat.compliancePct),
+                  borderRadius: '4px 4px 0 0',
+                  transition: 'height 0.3s ease',
+                  border: isSelected ? '2px solid #172B4D' : 'none',
+                  boxShadow: isSelected ? '0 0 0 2px rgba(23,43,77,0.2)' : 'none'
+                }} />
+
+                {/* X-axis Category Label */}
+                <div style={{
+                  position: 'absolute',
+                  top: `${PLOT_HEIGHT + 6}px`,
+                  fontSize: '0.72rem',
+                  color: isSelected ? '#172B4D' : '#64748B',
+                  fontWeight: isSelected ? 600 : 500,
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  width: '100%'
+                }}>
+                  {cat.label}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     )
@@ -149,58 +159,66 @@ function SubmissionVerticalBarChart({
   }
 
   return (
-    <div>
-      {renderPriorityLegend()}
-      <div style={{ position: 'relative', height: `${PLOT_HEIGHT + 55}px`, paddingLeft: '45px', paddingTop: '25px', paddingBottom: '30px' }}>
-        {/* Y-Axis Ticks */}
-        <div style={{ position: 'absolute', left: 0, top: '25px', height: `${PLOT_HEIGHT}px`, width: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', borderRight: '1.5px solid #64748b', paddingRight: '6px' }}>
-          {ticks.map(t => (
-            <span key={t} style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600, transform: 'translateY(-50%)', lineHeight: 1 }}>{t}</span>
-          ))}
-        </div>
+    <div style={{ position: 'relative', height: `${PLOT_HEIGHT + 36}px`, paddingLeft: '45px', paddingTop: '16px', paddingBottom: '20px', width: '100%', boxSizing: 'border-box' }}>
+      {/* Y-Axis Ticks */}
+      <div style={{ position: 'absolute', left: 0, top: '16px', height: `${PLOT_HEIGHT}px`, width: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', borderRight: '1px solid #cbd5e1', paddingRight: '8px' }}>
+        {ticks.map(t => (
+          <span key={t} style={{ fontSize: '0.675rem', color: '#64748B', fontWeight: 500, transform: 'translateY(-50%)', lineHeight: 1 }}>{t}</span>
+        ))}
+      </div>
 
-        {/* Horizontal Gridlines */}
-        <div style={{ position: 'absolute', left: '45px', right: 0, top: '25px', height: `${PLOT_HEIGHT}px`, pointerEvents: 'none' }}>
-          {ticks.map((t, idx) => (
-            <div key={t} style={{ position: 'absolute', top: `${(idx / (ticks.length - 1)) * 100}%`, left: 0, right: 0, borderTop: t === 0 ? '1.5px solid #64748b' : '1px dashed #e2e8f0' }} />
-          ))}
-        </div>
+      {/* Horizontal Gridlines */}
+      <div style={{ position: 'absolute', left: '45px', right: 0, top: '16px', height: `${PLOT_HEIGHT}px`, pointerEvents: 'none' }}>
+        {ticks.map((t, idx) => (
+          <div key={t} style={{ position: 'absolute', top: `${(idx / (ticks.length - 1)) * 100}%`, left: 0, right: 0, borderTop: t === 0 ? '1.5px solid #cbd5e1' : '1px dashed #e2e8f0' }} />
+        ))}
+      </div>
 
-        {/* Grouped Bars Container */}
-        <div style={{ position: 'relative', height: `${PLOT_HEIGHT}px`, display: 'grid', gridTemplateColumns: `repeat(${categories.length}, 1fr)`, gap: '0.75rem' }}>
-          {categories.map(cat => {
-            const targetPx = Math.min(PLOT_HEIGHT, Math.max(0, (cat.targetReports / maxAxisVal) * PLOT_HEIGHT))
-            const actualPx = Math.min(PLOT_HEIGHT, Math.max(0, (cat.actualReports / maxAxisVal) * PLOT_HEIGHT))
-            const isSelected = selectedCategoryId === cat.id
+      {/* Grouped Bars Container */}
+      <div style={{ position: 'relative', height: `${PLOT_HEIGHT}px`, display: 'grid', gridTemplateColumns: `repeat(${categories.length}, 1fr)`, gap: '0.75rem' }}>
+        {categories.map(cat => {
+          const targetPx = Math.min(PLOT_HEIGHT, Math.max(0, (cat.targetReports / maxAxisVal) * PLOT_HEIGHT))
+          const actualPx = Math.min(PLOT_HEIGHT, Math.max(0, (cat.actualReports / maxAxisVal) * PLOT_HEIGHT))
+          const isSelected = selectedCategoryId === cat.id
 
-            return (
-              <div
-                key={cat.id}
-                onClick={() => onSelectCategory(cat)}
-                title={`${cat.label}\nTarget: ${formatCount(cat.targetReports)} laporan\nSudah Dikirim: ${formatCount(cat.actualReports)} laporan\nBelum Dikirim: ${formatCount(cat.shortfall)} laporan${cat.partialTooltip ? '\n' + cat.partialTooltip : ''}`}
-                style={{ position: 'relative', height: `${PLOT_HEIGHT}px`, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', cursor: 'pointer', opacity: isSelected ? 1 : (selectedCategoryId ? 0.6 : 1) }}
-              >
-                <div style={{ display: 'flex', gap: '3px', alignItems: 'flex-end', width: '100%', maxWidth: '44px', height: `${PLOT_HEIGHT}px`, position: 'relative' }}>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: `${PLOT_HEIGHT}px`, position: 'relative' }}>
-                    <div style={{ position: 'absolute', bottom: `${targetPx + 2}px`, fontSize: '0.6rem', fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap' }}>
-                      {formatCount(cat.targetReports)}
-                    </div>
-                    <div style={{ width: '100%', height: `${targetPx}px`, background: '#94a3b8', borderRadius: '3px 3px 0 0' }} />
+          return (
+            <div
+              key={cat.id}
+              onClick={() => onSelectCategory(cat)}
+              title={`${cat.label}\nTarget: ${formatCount(cat.targetReports)} laporan\nSudah Dikirim: ${formatCount(cat.actualReports)} laporan\nBelum Dikirim: ${formatCount(cat.shortfall)} laporan${cat.partialTooltip ? '\n' + cat.partialTooltip : ''}`}
+              style={{ position: 'relative', height: `${PLOT_HEIGHT}px`, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', cursor: 'pointer', opacity: isSelected ? 1 : (selectedCategoryId ? 0.6 : 1) }}
+            >
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', width: '100%', maxWidth: '44px', height: `${PLOT_HEIGHT}px`, position: 'relative' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: `${PLOT_HEIGHT}px`, position: 'relative' }}>
+                  <div style={{ position: 'absolute', bottom: `${targetPx + 2}px`, fontSize: '0.65rem', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap' }}>
+                    {formatCount(cat.targetReports)}
                   </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: `${PLOT_HEIGHT}px`, position: 'relative' }}>
-                    <div style={{ position: 'absolute', bottom: `${actualPx + 2}px`, fontSize: '0.6rem', fontWeight: 700, color: cat.compliancePct !== null ? cat.thresholdColor : '#94a3b8', whiteSpace: 'nowrap' }}>
-                      {formatCount(cat.actualReports)}
-                    </div>
-                    <div style={{ width: '100%', height: `${actualPx}px`, background: cat.compliancePct !== null ? cat.thresholdColor : '#94a3b8', borderRadius: '3px 3px 0 0' }} />
-                  </div>
+                  <div style={{ width: '100%', height: `${targetPx}px`, background: '#94a3b8', borderRadius: '3px 3px 0 0' }} />
                 </div>
-                <div style={{ position: 'absolute', top: `${PLOT_HEIGHT + 6}px`, fontSize: '0.675rem', color: isSelected ? '#0f172a' : '#334155', fontWeight: isSelected ? 800 : 600, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                  {cat.label}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: `${PLOT_HEIGHT}px`, position: 'relative' }}>
+                  <div style={{ position: 'absolute', bottom: `${actualPx + 2}px`, fontSize: '0.65rem', fontWeight: 600, color: '#172B4D', whiteSpace: 'nowrap' }}>
+                    {formatCount(cat.actualReports)}
+                  </div>
+                  <div style={{ width: '100%', height: `${actualPx}px`, background: getBarColor(cat.compliancePct), borderRadius: '3px 3px 0 0' }} />
                 </div>
               </div>
-            )
-          })}
-        </div>
+              <div style={{
+                position: 'absolute',
+                top: `${PLOT_HEIGHT + 6}px`,
+                fontSize: '0.72rem',
+                color: isSelected ? '#172B4D' : '#64748B',
+                fontWeight: isSelected ? 600 : 500,
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                width: '100%'
+              }}>
+                {cat.label}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -1049,7 +1067,6 @@ export default function ReportsPage() {
   // Redesigned 5-Card Main Navigation State: 'laporan' | 'normal_rusak' | 'exceptions' | 'coverage' | 'route'
   const [activeMainCard, setActiveMainCard] = useState<'laporan' | 'normal_rusak' | 'exceptions' | 'coverage' | 'route'>('laporan')
   const [activeExceptionSub, setActiveExceptionSub] = useState<'Kecepatan' | 'Keluar Rute' | 'Berhenti'>('Kecepatan')
-  const [activeCoverageSubTab, setActiveCoverageSubTab] = useState<'Aktivitas' | 'Cakupan'>('Aktivitas')
   const [activeNormalRusakSub, setActiveNormalRusakSub] = useState<'ALL' | 'NORMAL' | 'UNIT_RUSAK' | 'GPS_RUSAK'>('ALL')
 
   // Persistent Priority Filter State: 'ALL' | 'Normal' | 'Urgent'
@@ -1475,503 +1492,703 @@ export default function ReportsPage() {
       }
     >
       {/* Global & Card Component Styling */}
-      <style jsx global>{`
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
         .data-table th {
           text-align: center !important;
           vertical-align: middle !important;
         }
 
+        /* --- 5 KPI Cards Container --- */
         .five-cards-container {
           display: grid;
-          grid-template-columns: 1fr 1fr 1.35fr 1fr 1.15fr;
-          gap: 0.85rem;
-          margin-bottom: 1.5rem;
+          grid-template-columns: 0.84fr 1.08fr 1.32fr 0.84fr 0.92fr;
+          gap: 12px;
+          margin-bottom: 16px;
           align-items: stretch;
+          font-family: 'Poppins', sans-serif;
         }
 
-        @media (max-width: 1100px) {
+        @media (max-width: 1024px) {
           .five-cards-container {
             grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
           }
         }
 
+        /* Individual KPI Card */
         .kpi-card {
           background: #ffffff;
           border-radius: 10px;
           border: 1px solid #e2e8f0;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-          padding: 0.85rem 0.95rem;
+          padding: 14px 14px;
           position: relative;
           overflow: hidden;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
-          min-height: 142px;
+          justify-content: flex-start;
+          height: 152px;
+          min-height: 152px;
+          box-sizing: border-box;
+          font-family: 'Poppins', sans-serif;
+        }
+
+        .kpi-card.card-exceptions {
+          padding: 14px 8px;
         }
 
         .kpi-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
           border-color: #cbd5e1;
         }
 
         .kpi-card.active {
-          border: 2px solid #2563eb;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+          border: 1.5px solid #2563eb;
+          box-shadow: 0 1px 4px rgba(37, 99, 235, 0.12);
           background: #ffffff;
         }
 
+        /* Accent Bar Top */
         .card-top-accent {
           position: absolute;
           top: 0;
           left: 0;
           right: 0;
           height: 4px;
+          border-top-left-radius: 9px;
+          border-top-right-radius: 9px;
         }
-
-        .card-top-accent.green { background: #16a34a; }
+        .card-top-accent.green { background: #36946C; }
         .card-top-accent.orange { background: #ea580c; }
         .card-top-accent.red { background: #dc2626; }
-        .card-top-accent.sky { background: #0284c7; }
-        .card-top-accent.cyan-amber { background: linear-gradient(90deg, #2563eb 65%, #f59e0b 35%); }
+        .card-top-accent.blue { background: #2563eb; }
 
-        .card-header {
+        /* Row 1: Header (Title, Icon, Chevron) */
+        .card-row-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 0.35rem;
+          height: 30px;
         }
 
-        .card-title-wrap {
+        .card-header-left {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: 7px;
+          min-width: 0;
         }
 
-        .card-icon {
-          font-size: 1rem;
+        .card-icon-wrap {
+          width: 30px;
+          height: 30px;
+          border-radius: 7px;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
         }
+        .card-icon-wrap.green-tint { background: #ecfdf5; color: #16a34a; }
+        .card-icon-wrap.orange-tint { background: #fff7ed; color: #ea580c; }
+        .card-icon-wrap.red-tint { background: #fef2f2; color: #dc2626; }
+        .card-icon-wrap.blue-tint { background: #eff6ff; color: #2563eb; }
 
         .card-title {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: #1e293b;
-        }
-
-        .active-badge {
-          font-size: 0.65rem;
-          font-weight: 700;
-          padding: 0.1rem 0.45rem;
-          border-radius: 12px;
-          background: #dbeafe;
-          color: #1d4ed8;
-        }
-
-        .card-body {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-
-        .main-stat {
-          font-size: 1.65rem;
-          font-weight: 800;
-          line-height: 1.1;
-          letter-spacing: -0.02em;
-        }
-
-        .green-text { color: #16a34a; }
-        .orange-text { color: #ea580c; }
-        .red-text { color: #dc2626; }
-        .purple-text { color: #7c3aed; }
-        .sky-text { color: #0284c7; }
-        .blue-text { color: #2563eb; }
-        .amber-text { color: #d97706; }
-
-        .sub-stat {
-          font-size: 0.775rem;
-          color: #64748b;
-          margin-top: 0.2rem;
-        }
-
-        .sub-stat-heading {
-          font-size: 0.775rem;
+          font-size: 13px;
           font-weight: 600;
-          color: #475569;
-          margin-top: 0.15rem;
+          color: #172B4D;
+          line-height: 1.2;
+          white-space: nowrap;
+          font-family: 'Poppins', sans-serif;
         }
 
-        .sub-stat-detail {
-          font-size: 0.725rem;
-          color: #64748b;
-          margin-top: 0.1rem;
+        .card-chevron {
+          color: #94a3b8;
+          transition: color 0.15s ease, transform 0.15s ease;
+          flex-shrink: 0;
+        }
+        .kpi-card:hover .card-chevron,
+        .kpi-card.active .card-chevron {
+          color: #2563eb;
+          transform: translateX(1px);
         }
 
-        .thin-progress-bg {
-          width: 100%;
-          height: 4px;
-          background: #e2e8f0;
-          border-radius: 2px;
-          margin-top: 0.35rem;
-          overflow: hidden;
-        }
-
-        .thin-progress-fill {
-          height: 100%;
-          border-radius: 2px;
-          transition: width 0.3s ease;
-        }
-
-        .thin-progress-fill.green-fill { background: #16a34a; }
-
-        .card-body.dual-stat {
+        /* Row 2: Main Stat */
+        .card-row-stat {
           display: flex;
-          flex-direction: row;
           align-items: center;
-          justify-content: space-around;
+          height: 34px;
+          margin-top: 6px;
         }
 
-        .stat-col {
+        .card-row-stat.dual-cols,
+        .card-row-stat.triple-cols {
           display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-
-        .stat-num {
-          font-size: 1.5rem;
-          font-weight: 800;
-          line-height: 1;
-        }
-
-        .stat-label {
-          font-size: 0.725rem;
-          color: #64748b;
-          margin-top: 0.2rem;
-          font-weight: 600;
-        }
-
-        .stat-divider {
-          width: 1px;
-          height: 28px;
-          background: #cbd5e1;
-        }
-
-        .triple-sub-stat {
-          display: flex;
-          flex-direction: row;
           align-items: center;
           justify-content: space-between;
-          gap: 0.2rem;
-          margin: 0.2rem 0;
+          width: 100%;
         }
 
+        .col-stat {
+          flex: 1;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-width: 0;
+        }
+
+        .stat-main-number {
+          font-size: 30px;
+          font-weight: 600;
+          line-height: 1.1;
+          color: #172B4D;
+          letter-spacing: -0.02em;
+          font-family: 'Poppins', sans-serif;
+        }
+
+        .col-divider {
+          width: 1px;
+          height: 20px;
+          background: #e2e8f0;
+          flex-shrink: 0;
+        }
+
+        .col-divider-invisible {
+          width: 1px;
+          height: 1px;
+          visibility: hidden;
+        }
+
+        /* Sub-indicators for Exceptions */
         .sub-indicator-item {
           flex: 1;
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 0.25rem 0.15rem;
-          border-radius: 6px;
-          transition: background 0.15s ease, border 0.15s ease;
+          justify-content: center;
           cursor: pointer;
+          border-radius: 6px;
+          padding: 2px 0;
+          transition: background 0.15s ease;
+          min-width: 0;
         }
-
         .sub-indicator-item:hover {
-          background: #f1f5f9;
+          background: #f8fafc;
         }
-
         .sub-indicator-item.selected {
           background: #fee2e2;
-          box-shadow: inset 0 0 0 1px #ef4444;
         }
 
-        .sub-num {
-          font-size: 1.25rem;
-          font-weight: 800;
+        /* Row 3: Label */
+        .card-row-label {
+          display: flex;
+          align-items: center;
+          height: 16px;
+          margin-top: 4px;
+        }
+
+        .card-row-label.dual-cols,
+        .card-row-label.triple-cols {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+        }
+
+        .col-label-wrap {
+          flex: 1;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          cursor: pointer;
+          min-width: 0;
+        }
+
+        .stat-label-text {
+          font-size: 12px;
+          color: #64748B;
+          font-weight: 500;
+          white-space: nowrap;
           line-height: 1;
+          font-family: 'Poppins', sans-serif;
+          letter-spacing: -0.01em;
         }
 
-        .sub-label {
-          font-size: 0.675rem;
-          color: #475569;
-          font-weight: 600;
-          margin-top: 0.15rem;
+        .card-row-label.triple-cols .stat-label-text {
+          font-size: 11.5px;
+          letter-spacing: -0.01em;
+        }
+
+        /* Row 4: Bottom info */
+        .card-row-bottom {
+          display: flex;
+          align-items: center;
+          height: 20px;
+          margin-top: 8px;
+        }
+
+        .bottom-summary-text {
+          font-size: 11.5px;
+          color: #64748B;
+          font-weight: 500;
+          line-height: 1;
+          font-family: 'Poppins', sans-serif;
           white-space: nowrap;
         }
 
-        .sub-divider {
-          width: 1px;
-          height: 24px;
-          background: #e2e8f0;
-        }
-
-        .card-body-bar {
-          margin-top: 0.25rem;
-        }
-
-        .prop-bar-bg {
+        /* Progress bars */
+        .progress-track {
           width: 100%;
           height: 6px;
-          background: #e2e8f0;
+          background: #f1f5f9;
           border-radius: 3px;
-          display: flex;
           overflow: hidden;
+          position: relative;
         }
 
-        .prop-bar-in {
+        .progress-track.dual {
+          display: flex;
+          background: #e2e8f0;
+        }
+
+        .progress-fill {
           height: 100%;
-          background: #2563eb;
+          border-radius: 3px;
           transition: width 0.3s ease;
         }
+        .progress-fill.green-bar { background: #36946C; }
+        .progress-fill.blue-bar { background: #2563eb; }
+        .progress-fill.in-route-bar { background: #2563eb; border-radius: 3px 0 0 3px; }
+        .progress-fill.out-route-bar { background: #e2e8f0; border-radius: 0 3px 3px 0; }
 
-        .prop-bar-out {
-          height: 100%;
-          background: #f59e0b;
-          transition: width 0.3s ease;
+        /* --- Unified Chart Panel Container --- */
+        .chart-card-container {
+          background: #ffffff;
+          border-radius: 10px;
+          border: 1px solid #e2e8f0;
+          padding: 16px 20px;
+          margin-bottom: 16px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+          font-family: 'Poppins', sans-serif;
+          box-sizing: border-box;
         }
 
-        .card-footer {
+        .chart-header-block {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+
+        .chart-header-row-1 {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-top: 0.4rem;
-          padding-top: 0.25rem;
-          border-top: 1px solid #f1f5f9;
+          gap: 16px;
+          flex-wrap: wrap;
         }
 
-        .footer-label {
-          font-size: 0.725rem;
-          color: #64748b;
+        .chart-title {
+          margin: 0;
+          font-size: 18.5px;
+          font-weight: 700;
+          color: #172B4D;
+          line-height: 1.2;
+          font-family: 'Poppins', sans-serif;
+        }
+
+        .chart-controls-area {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .chart-header-row-2 {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+
+        .chart-scope-label {
+          font-size: 12.5px;
+          font-weight: 500;
+          color: #64748B;
+          font-family: 'Poppins', sans-serif;
+        }
+
+        .chart-priority-legend {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          font-size: 11.5px;
+          color: #64748B;
+          font-family: 'Poppins', sans-serif;
+          flex-shrink: 0;
+        }
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
           font-weight: 500;
         }
 
-        .footer-arrow {
-          font-size: 1rem;
-          color: #94a3b8;
-          font-weight: 700;
+        .legend-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+          flex-shrink: 0;
+        }
+        .legend-dot.green { background: #36946C; }
+        .legend-dot.amber { background: #D99A28; }
+        .legend-dot.red { background: #DC5B60; }
+        .legend-dot.target { background: #94a3b8; }
+        .legend-dot.actual { background: #36946C; }
+
+        /* Segmented Buttons */
+        .segmented-toggle {
+          display: flex;
+          background: #ffffff;
+          padding: 2px;
+          border-radius: 8px;
+          border: 1px solid #dbeafe;
+          height: 32px;
+          align-items: center;
+          box-sizing: border-box;
+        }
+
+        .segmented-toggle.measure-toggle {
+          border-color: #e2e8f0;
+        }
+
+        .toggle-btn {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 0 10px;
+          height: 26px;
+          border: none;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          background: transparent;
+          color: #64748B;
+          transition: all 0.15s ease;
+          font-family: 'Poppins', sans-serif;
           line-height: 1;
         }
 
-        .kpi-card:hover .footer-arrow,
-        .kpi-card.active .footer-arrow {
+        .toggle-btn:hover {
+          color: #172B4D;
+        }
+
+        .toggle-btn.active {
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
           color: #2563eb;
-          transform: translateX(2px);
-          transition: transform 0.15s ease;
+        }
+
+        .toggle-btn.active-solid {
+          background: #1565d8;
+          color: #ffffff;
+        }
+
+        .toggle-btn.active-solid {
+          background: #1565d8;
+          color: #ffffff;
         }
       `}</style>
 
       {/* 5 MAIN DESKTOP CARDS HEADER (1 ROW) */}
       <div className="five-cards-container">
-        {/* CARD A: LAPORAN */}
+        {/* CARD 1: LAPORAN */}
         <div
           className={`kpi-card ${activeMainCard === 'laporan' ? 'active' : ''}`}
           onClick={() => handleCardClick('laporan')}
         >
           <div className="card-top-accent green" />
-          <div className="card-header">
-            <div className="card-title-wrap">
-              <span className="card-icon green-text">📄</span>
+
+          {/* Row 1: Header (Title, Icon, Chevron) */}
+          <div className="card-row-header">
+            <div className="card-header-left">
+              <div className="card-icon-wrap green-tint">
+                <FileText size={18} strokeWidth={2} />
+              </div>
               <span className="card-title">Laporan</span>
             </div>
-            {activeMainCard === 'laporan' && <span className="active-badge">Aktif</span>}
+            <ChevronRight size={16} className="card-chevron" />
           </div>
-          <div className="card-body">
-            <div className="main-stat green-text">
+
+          {/* Row 2: Main Stat */}
+          <div className="card-row-stat">
+            <span className="stat-main-number">
               {reportsKpis.sudahDikirimPct !== null ? `${formatPercentage(reportsKpis.sudahDikirimPct)}` : 'N/A'}
-            </div>
-            <div className="sub-stat">
-              <strong>{reportsKpis.sudahDikirimCount}</strong> / {reportsKpis.targetReports} terkirim
-            </div>
-            <div className="thin-progress-bg">
-              <div className="thin-progress-fill green-fill" style={{ width: `${Math.min(100, reportsKpis.sudahDikirimPct || 0)}%` }} />
-            </div>
+            </span>
           </div>
-          <div className="card-footer">
-            <span className="footer-label">Kepatuhan pengiriman</span>
-            <span className="footer-arrow">›</span>
+
+          {/* Row 3: Label */}
+          <div className="card-row-label">
+            <span className="stat-label-text">
+              {reportsKpis.sudahDikirimCount} / {reportsKpis.targetReports} terkirim
+            </span>
+          </div>
+
+          {/* Row 4: Bottom info (Progress Bar) */}
+          <div className="card-row-bottom">
+            <div className="progress-track">
+              <div
+                className="progress-fill green-bar"
+                style={{ width: `${Math.min(100, Math.max(0, reportsKpis.sudahDikirimPct || 0))}%` }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* CARD B: NORMAL / RUSAK */}
+        {/* CARD 2: STATUS OPERASIONAL */}
         <div
           className={`kpi-card ${activeMainCard === 'normal_rusak' ? 'active' : ''}`}
           onClick={() => handleCardClick('normal_rusak')}
         >
           <div className="card-top-accent orange" />
-          <div className="card-header">
-            <div className="card-title-wrap">
-              <span className="card-icon orange-text">🛡️</span>
-              <span className="card-title">Normal / Rusak</span>
+
+          {/* Row 1: Header */}
+          <div className="card-row-header">
+            <div className="card-header-left">
+              <div className="card-icon-wrap orange-tint">
+                <Shield size={18} strokeWidth={2} />
+              </div>
+              <span className="card-title">Status Operasional</span>
             </div>
-            {activeMainCard === 'normal_rusak' && <span className="active-badge">Aktif</span>}
+            <ChevronRight size={16} className="card-chevron" />
           </div>
-          <div className="card-body dual-stat">
-            <div className="stat-col">
-              <div className="stat-num green-text" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+
+          {/* Row 2: Main Stat (2 columns) */}
+          <div className="card-row-stat dual-cols">
+            <div className="col-stat">
+              <div
+                className="stat-main-number"
+                title={urgentPendingCardCount > 0 ? `${urgentPendingCardCount} laporan urgent menunggu komentar Anda.` : undefined}
+              >
                 <span>{reportsKpis.normalCount + reportsKpis.urgentCount}</span>
-                {urgentPendingCardCount > 0 && (
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleCardClick('normal_rusak')
-                    }}
-                    title={`${urgentPendingCardCount} laporan urgent menunggu komentar Anda.`}
-                    aria-label={`${urgentPendingCardCount} laporan urgent menunggu komentar Anda.`}
-                    style={{ display: 'inline-flex', cursor: 'pointer', color: '#dc2626' }}
-                  >
-                    <AlertCircle size={16} />
-                  </span>
-                )}
               </div>
-              <div className="stat-label">Normal</div>
             </div>
-            <div className="stat-divider" />
-            <div className="stat-col">
-              <div className="stat-num orange-text" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div className="col-divider" />
+            <div className="col-stat">
+              <div
+                className="stat-main-number"
+                title={damagePendingActionCardCount > 0 ? `${damagePendingActionCardCount} unit/GPS belum pulih melewati batas eskalasi Anda.` : undefined}
+              >
                 <span>{reportsKpis.unitRusakCount + reportsKpis.gpsRusakCount}</span>
-                {damagePendingActionCardCount > 0 && (
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleCardClick('normal_rusak')
-                    }}
-                    title={`${damagePendingActionCardCount} unit/GPS belum pulih melewati batas eskalasi Anda.`}
-                    aria-label={`${damagePendingActionCardCount} unit/GPS belum pulih melewati batas eskalasi Anda.`}
-                    style={{ display: 'inline-flex', cursor: 'pointer', color: '#b45309' }}
-                  >
-                    <AlertTriangle size={16} />
-                  </span>
-                )}
               </div>
-              <div className="stat-label">Rusak</div>
             </div>
           </div>
-          <div className="card-footer">
-            <span className="footer-label">Status operasional</span>
-            <span className="footer-arrow">›</span>
+
+          {/* Row 3: Label (2 columns) */}
+          <div className="card-row-label dual-cols">
+            <div className="col-stat">
+              <span className="stat-label-text">Normal</span>
+            </div>
+            <div className="col-divider-invisible" />
+            <div className="col-stat">
+              <span className="stat-label-text">Rusak</span>
+            </div>
+          </div>
+
+          {/* Row 4: Bottom info (Text) */}
+          <div className="card-row-bottom">
+            <span className="bottom-summary-text">
+              {reportsKpis.normalCount + reportsKpis.urgentCount + reportsKpis.unitRusakCount + reportsKpis.gpsRusakCount} laporan dianalisis
+            </span>
           </div>
         </div>
 
-        {/* CARD C: EXCEPTIONS */}
-        <div className={`kpi-card ${activeMainCard === 'exceptions' ? 'active' : ''}`}>
+        {/* CARD 3: EXCEPTIONS */}
+        <div
+          className={`kpi-card card-exceptions ${activeMainCard === 'exceptions' ? 'active' : ''}`}
+          onClick={() => handleCardClick('exceptions')}
+        >
           <div className="card-top-accent red" />
-          <div className="card-header">
-            <div className="card-title-wrap">
-              <span className="card-icon red-text">⚠️</span>
+
+          {/* Row 1: Header */}
+          <div className="card-row-header">
+            <div className="card-header-left">
+              <div className="card-icon-wrap red-tint">
+                <AlertTriangle size={18} strokeWidth={2} />
+              </div>
               <span className="card-title">Exceptions</span>
             </div>
-            {activeMainCard === 'exceptions' && <span className="active-badge">Aktif</span>}
+            <ChevronRight size={16} className="card-chevron" />
           </div>
-          <div className="card-body triple-sub-stat">
-            {/* Speeding */}
+
+          {/* Row 2: Main Stat (3 columns) */}
+          <div className="card-row-stat triple-cols">
             <div
               className={`sub-indicator-item ${activeMainCard === 'exceptions' && activeExceptionSub === 'Kecepatan' ? 'selected' : ''}`}
               onClick={(e) => { e.stopPropagation(); handleExceptionSubClick('Kecepatan'); }}
               title="Kecepatan >50 km/jam"
             >
-              <div className="sub-num red-text">{formatCount(reportsKpis.speedingCount)}</div>
-              <div className="sub-label">Speeding</div>
+              <div className="stat-main-number">{formatCount(reportsKpis.speedingCount)}</div>
             </div>
-
-            <div className="sub-divider" />
-
-            {/* Keluar Rute */}
+            <div className="col-divider" />
             <div
               className={`sub-indicator-item ${activeMainCard === 'exceptions' && activeExceptionSub === 'Keluar Rute' ? 'selected' : ''}`}
               onClick={(e) => { e.stopPropagation(); handleExceptionSubClick('Keluar Rute'); }}
               title="Keluar rute patroli"
             >
-              <div className="sub-num purple-text">{formatCount(reportsKpis.outOfRouteCount)}</div>
-              <div className="sub-label">Keluar rute</div>
+              <div className="stat-main-number">{formatCount(reportsKpis.outOfRouteCount)}</div>
             </div>
-
-            <div className="sub-divider" />
-
-            {/* Stop >30 mnt */}
+            <div className="col-divider" />
             <div
               className={`sub-indicator-item ${activeMainCard === 'exceptions' && activeExceptionSub === 'Berhenti' ? 'selected' : ''}`}
               onClick={(e) => { e.stopPropagation(); handleExceptionSubClick('Berhenti'); }}
               title="Berhenti >30 menit"
             >
-              <div className="sub-num blue-text">{formatCount(reportsKpis.overparkingCount)}</div>
-              <div className="sub-label">Stop &gt;30 mnt</div>
+              <div className="stat-main-number">{formatCount(reportsKpis.overparkingCount)}</div>
             </div>
           </div>
-          <div className="card-footer">
-            <span className="footer-label">kejadian</span>
-            <span className="footer-arrow">›</span>
+
+          {/* Row 3: Label (3 columns) */}
+          <div className="card-row-label triple-cols">
+            <div
+              className="col-label-wrap"
+              onClick={(e) => { e.stopPropagation(); handleExceptionSubClick('Kecepatan'); }}
+            >
+              <span className="stat-label-text">Speeding</span>
+            </div>
+            <div className="col-divider-invisible" />
+            <div
+              className="col-label-wrap"
+              onClick={(e) => { e.stopPropagation(); handleExceptionSubClick('Keluar Rute'); }}
+            >
+              <span className="stat-label-text">Keluar rute</span>
+            </div>
+            <div className="col-divider-invisible" />
+            <div
+              className="col-label-wrap"
+              onClick={(e) => { e.stopPropagation(); handleExceptionSubClick('Berhenti'); }}
+            >
+              <span className="stat-label-text">Stop &gt;30 mnt</span>
+            </div>
+          </div>
+
+          {/* Row 4: Bottom info (Text) */}
+          <div className="card-row-bottom">
+            <span className="bottom-summary-text">
+              Total {reportsKpis.speedingCount + reportsKpis.outOfRouteCount + reportsKpis.overparkingCount} kejadian
+            </span>
           </div>
         </div>
 
-        {/* CARD D: COVERAGE */}
+        {/* CARD 4: COVERAGE */}
         <div
           className={`kpi-card ${activeMainCard === 'coverage' ? 'active' : ''}`}
           onClick={() => handleCardClick('coverage')}
         >
-          <div className="card-top-accent sky" />
-          <div className="card-header">
-            <div className="card-title-wrap">
-              <span className="card-icon sky-text">🗺️</span>
+          <div className="card-top-accent blue" />
+
+          {/* Row 1: Header */}
+          <div className="card-row-header">
+            <div className="card-header-left">
+              <div className="card-icon-wrap blue-tint">
+                <BookOpen size={18} strokeWidth={2} />
+              </div>
               <span className="card-title">Coverage</span>
             </div>
-            {activeMainCard === 'coverage' && <span className="active-badge">Aktif</span>}
+            <ChevronRight size={16} className="card-chevron" />
           </div>
-          <div className="card-body">
-            <div className="main-stat sky-text">
+
+          {/* Row 2: Main Stat */}
+          <div className="card-row-stat">
+            <span className="stat-main-number">
               {coverageMetrics.coverageRawanPct !== null ? `${coverageMetrics.coverageRawanPct.toFixed(1).replace('.', ',')}%` : '—'}
-            </div>
-            <div className="sub-stat-heading">Aktivitas area rawan</div>
-            <div className="sub-stat-detail">
-              {coverageMetrics.rawanCount} / {coverageMetrics.totalValidCoverage} kunjungan
-            </div>
+            </span>
           </div>
-          <div className="card-footer">
-            <span className="footer-arrow">›</span>
+
+          {/* Row 3: Label */}
+          <div className="card-row-label">
+            <span
+              className="stat-label-text"
+              title={`${coverageMetrics.rawanCount} / ${coverageMetrics.totalValidCoverage} kunjungan area rawan`}
+            >
+              {coverageMetrics.rawanCount} / {coverageMetrics.totalValidCoverage} kunjungan
+            </span>
+          </div>
+
+          {/* Row 4: Bottom info (Progress Bar) */}
+          <div className="card-row-bottom">
+            <div className="progress-track">
+              <div
+                className="progress-fill blue-bar"
+                style={{ width: `${Math.min(100, Math.max(0, coverageMetrics.coverageRawanPct || 0))}%` }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* CARD E: IN-ROUTE / OUT-ROUTE */}
+        {/* CARD 5: KEPATUHAN RUTE */}
         <div
           className={`kpi-card ${activeMainCard === 'route' ? 'active' : ''}`}
           onClick={() => handleCardClick('route')}
         >
-          <div className="card-top-accent cyan-amber" />
-          <div className="card-header">
-            <div className="card-title-wrap">
-              <span className="card-icon blue-text">🔀</span>
-              <span className="card-title">In-route / Out-route</span>
+          <div className="card-top-accent blue" />
+
+          {/* Row 1: Header */}
+          <div className="card-row-header">
+            <div className="card-header-left">
+              <div className="card-icon-wrap blue-tint">
+                <Shuffle size={18} strokeWidth={2} />
+              </div>
+              <span className="card-title">Kepatuhan Rute</span>
             </div>
-            {activeMainCard === 'route' && <span className="active-badge">Aktif</span>}
+            <ChevronRight size={16} className="card-chevron" />
           </div>
-          <div className="card-body dual-stat">
-            <div className="stat-col">
-              <div className="stat-num blue-text">
+
+          {/* Row 2: Main Stat (2 columns) */}
+          <div className="card-row-stat dual-cols">
+            <div className="col-stat">
+              <div className="stat-main-number">
                 {routeKpis.kesesuaianPct !== null ? `${Math.round(routeKpis.kesesuaianPct)}%` : '—'}
               </div>
-              <div className="stat-label">In-route</div>
             </div>
-            <div className="stat-col">
-              <div className="stat-num amber-text">
+            <div className="col-divider" />
+            <div className="col-stat">
+              <div className="stat-main-number">
                 {routeKpis.kesesuaianPct !== null ? `${100 - Math.round(routeKpis.kesesuaianPct)}%` : '—'}
               </div>
-              <div className="stat-label">Out-route</div>
             </div>
           </div>
-          <div className="card-body-bar">
-            <div className="prop-bar-bg">
-              <div className="prop-bar-in" style={{ width: `${Math.min(100, Math.max(0, routeKpis.kesesuaianPct || 0))}%` }} />
-              <div className="prop-bar-out" style={{ width: `${Math.min(100, Math.max(0, 100 - (routeKpis.kesesuaianPct || 0)))}%` }} />
+
+          {/* Row 3: Label (2 columns) */}
+          <div className="card-row-label dual-cols">
+            <div className="col-stat">
+              <span className="stat-label-text">In-route</span>
+            </div>
+            <div className="col-divider-invisible" />
+            <div className="col-stat">
+              <span className="stat-label-text">Out-route</span>
             </div>
           </div>
-          <div className="card-footer">
-            <span className="footer-label">Proporsi jarak patroli</span>
-            <span className="footer-arrow">›</span>
+
+          {/* Row 4: Bottom info (Dual progress bar) */}
+          <div className="card-row-bottom">
+            <div className="progress-track dual">
+              <div
+                className="progress-fill in-route-bar"
+                style={{ width: `${Math.min(100, Math.max(0, routeKpis.kesesuaianPct || 0))}%` }}
+              />
+              <div
+                className="progress-fill out-route-bar"
+                style={{ width: `${Math.min(100, Math.max(0, 100 - (routeKpis.kesesuaianPct || 0)))}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1989,115 +2206,106 @@ export default function ReportsPage() {
               onOpenReportModal={setActiveReportModal}
             />
           ) : (
-            <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
-                    Disiplin Pengiriman Laporan Patroli
-                  </h3>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
-                    Periode Efektif: <strong>{effectiveDateRange.label}</strong> ({reportsKpis.hkDays} Hari Operasional)
+            <div className="laporan-main-area">
+              {/* UNIFIED CHART CARD CONTAINER */}
+              <div className="chart-card-container">
+                <div className="chart-header-block">
+                  {/* Row 1: Title on left, segmented toggle controls on right */}
+                  <div className="chart-header-row-1">
+                    <h3 className="chart-title">
+                      Disiplin Pengiriman Laporan Patroli
+                    </h3>
+
+                    <div className="chart-controls-area">
+                      {/* View Mode Toggle: Perbandingan vs Tren 6 Bulan */}
+                      <div className="segmented-toggle">
+                        <button
+                          type="button"
+                          onClick={() => handleChartViewToggle('Perbandingan')}
+                          className={`toggle-btn ${chartViewMode === 'Perbandingan' ? 'active' : ''}`}
+                        >
+                          <BarChart2 size={15} />
+                          <span>Perbandingan</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChartViewToggle('Tren 6 Bulan')}
+                          className={`toggle-btn ${chartViewMode === 'Tren 6 Bulan' ? 'active' : ''}`}
+                        >
+                          <TrendingUp size={15} />
+                          <span>Tren 6 Bulan</span>
+                        </button>
+                      </div>
+
+                      {/* Measure Mode Toggle: % vs Jumlah */}
+                      <div className="segmented-toggle measure-toggle">
+                        <button
+                          type="button"
+                          onClick={() => setChartMeasureMode('Persentase (%)')}
+                          className={`toggle-btn ${chartMeasureMode === 'Persentase (%)' ? 'active-solid' : ''}`}
+                        >
+                          %
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChartMeasureMode('Jumlah Laporan')}
+                          className={`toggle-btn ${chartMeasureMode === 'Jumlah Laporan' ? 'active-solid' : ''}`}
+                        >
+                          Jumlah
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Scope description on left, priority legend on right */}
+                  <div className="chart-header-row-2">
+                    <span className="chart-scope-label">
+                      {chartViewMode === 'Tren 6 Bulan'
+                        ? laporanData.chartSubtitle
+                        : `${globalFilters.estate !== 'ALL' ? globalFilters.estate : (globalFilters.region !== 'ALL' ? globalFilters.region : (globalFilters.psm !== 'ALL' ? globalFilters.psm : 'Nasional'))} · ${effectiveDateRange.label}`}
+                    </span>
+
+                    <div className="chart-priority-legend">
+                      <span className="legend-item">
+                        <span className="legend-dot green" />
+                        <span>Rendah (≥100%)</span>
+                      </span>
+                      <span className="legend-item">
+                        <span className="legend-dot amber" />
+                        <span>Sedang (≥90%-&lt;100%)</span>
+                      </span>
+                      <span className="legend-item">
+                        <span className="legend-dot red" />
+                        <span>Tinggi (&lt;90%)</span>
+                      </span>
+                      {chartMeasureMode === 'Jumlah Laporan' && (
+                        <>
+                          <span className="legend-item">
+                            <span className="legend-dot target" />
+                            <span>Target</span>
+                          </span>
+                          <span className="legend-item">
+                            <span className="legend-dot actual" />
+                            <span>Sudah Dikirim</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.2rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleChartViewToggle('Perbandingan')}
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        border: 'none',
-                        borderRadius: '4px',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        background: chartViewMode === 'Perbandingan' ? '#ffffff' : 'transparent',
-                        color: chartViewMode === 'Perbandingan' ? '#0f172a' : '#64748b',
-                        boxShadow: chartViewMode === 'Perbandingan' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-                      }}
-                    >
-                      📊 Perbandingan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleChartViewToggle('Tren 6 Bulan')}
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        border: 'none',
-                        borderRadius: '4px',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        background: chartViewMode === 'Tren 6 Bulan' ? '#ffffff' : 'transparent',
-                        color: chartViewMode === 'Tren 6 Bulan' ? '#0f172a' : '#64748b',
-                        boxShadow: chartViewMode === 'Tren 6 Bulan' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-                      }}
-                    >
-                      📈 Tren 6 Bulan
-                    </button>
-                  </div>
-                </div>
+                <SubmissionVerticalBarChart
+                  categories={laporanData.categories}
+                  chartMeasureMode={chartMeasureMode}
+                  effectiveDateRangeLabel={effectiveDateRange.label}
+                  onSelectCategory={cat => handleSelectDrilldown(cat.id, cat.label)}
+                  selectedCategoryId={drilldownState?.categoryKey}
+                />
               </div>
 
               {/* MODE 1: PERBANDINGAN */}
               {chartViewMode === 'Perbandingan' && (
                 <div>
-                  <div style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
-                          {laporanData.chartTitle} ({effectiveDateRange.label})
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.1rem' }}>
-                          Total Terkirim: <strong>{formatCount(reportsKpis.sudahDikirimCount)}</strong> / <strong>{formatCount(reportsKpis.targetReports)}</strong> target laporan ({formatPercentage(reportsKpis.sudahDikirimPct)})
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '0.3rem', background: '#e2e8f0', padding: '0.2rem', borderRadius: '6px' }}>
-                        {(['Persentase (%)', 'Jumlah Laporan'] as const).map(mode => (
-                          <button
-                            key={mode}
-                            type="button"
-                            onClick={() => setChartMeasureMode(mode)}
-                            style={{
-                              padding: '0.25rem 0.6rem',
-                              border: 'none',
-                              borderRadius: '4px',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              background: chartMeasureMode === mode ? '#ffffff' : 'transparent',
-                              color: chartMeasureMode === mode ? '#0f172a' : '#64748b'
-                            }}
-                          >
-                            {mode === 'Persentase (%)' ? '%' : 'Jumlah'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {chartMeasureMode === 'Jumlah Laporan' && (
-                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem', fontSize: '0.75rem', fontWeight: 600 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{ width: '12px', height: '12px', background: '#94a3b8', borderRadius: '2px', display: 'inline-block' }} />
-                          <span>Target</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{ width: '12px', height: '12px', background: '#10b981', borderRadius: '2px', display: 'inline-block' }} />
-                          <span>Sudah Dikirim</span>
-                        </div>
-                      </div>
-                    )}
-
-                    <SubmissionVerticalBarChart
-                      categories={laporanData.categories}
-                      chartMeasureMode={chartMeasureMode}
-                      effectiveDateRangeLabel={effectiveDateRange.label}
-                      onSelectCategory={cat => handleSelectDrilldown(cat.id, cat.label)}
-                      selectedCategoryId={drilldownState?.categoryKey}
-                    />
-                  </div>
 
                   {/* Summary Table directly below Perbandingan chart */}
                   <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -2209,63 +2417,6 @@ export default function ReportsPage() {
               {/* MODE 2: TREN 6 BULAN */}
               {chartViewMode === 'Tren 6 Bulan' && (
                 <div>
-                  <div style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
-                          Grafik Tren 6 Bulan ({laporanData.chartSubtitle})
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.1rem' }}>
-                          {laporanData.categories.some(c => c.isPartialMonth) && (
-                            <span>* Bulan terakhir memuat target &amp; actual parsial sesuai cutoff periode.</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '0.3rem', background: '#e2e8f0', padding: '0.2rem', borderRadius: '6px' }}>
-                        {(['Persentase (%)', 'Jumlah Laporan'] as const).map(mode => (
-                          <button
-                            key={mode}
-                            type="button"
-                            onClick={() => setChartMeasureMode(mode)}
-                            style={{
-                              padding: '0.25rem 0.6rem',
-                              border: 'none',
-                              borderRadius: '4px',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              background: chartMeasureMode === mode ? '#ffffff' : 'transparent',
-                              color: chartMeasureMode === mode ? '#0f172a' : '#64748b'
-                            }}
-                          >
-                            {mode === 'Persentase (%)' ? '%' : 'Jumlah'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {chartMeasureMode === 'Jumlah Laporan' && (
-                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem', fontSize: '0.75rem', fontWeight: 600 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{ width: '12px', height: '12px', background: '#94a3b8', borderRadius: '2px', display: 'inline-block' }} />
-                          <span>Target</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{ width: '12px', height: '12px', background: '#10b981', borderRadius: '2px', display: 'inline-block' }} />
-                          <span>Sudah Dikirim</span>
-                        </div>
-                      </div>
-                    )}
-
-                    <SubmissionVerticalBarChart
-                      categories={laporanData.categories}
-                      chartMeasureMode={chartMeasureMode}
-                      effectiveDateRangeLabel={effectiveDateRange.label}
-                      onSelectCategory={cat => handleSelectDrilldown(cat.id, cat.label)}
-                      selectedCategoryId={drilldownState?.categoryKey}
-                    />
-                  </div>
 
                   {/* Summary Table directly below 6-Month Chart */}
                   <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -2531,52 +2682,13 @@ export default function ReportsPage() {
       {/* 4. CARD D: COVERAGE (Coverage Area Tab) */}
       {activeMainCard === 'coverage' && (
         <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
-          {/* Header & Sub-tabs selector matching mockup */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                🗺️ Analisis Coverage Area
-              </h3>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
-                Scope: <strong>{globalFilters.estate !== 'ALL' ? globalFilters.estate : globalFilters.region !== 'ALL' ? globalFilters.region : globalFilters.psm}</strong> · Periode sesuai filter
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '6px' }}>
-              <button
-                type="button"
-                onClick={() => setActiveCoverageSubTab('Aktivitas')}
-                style={{
-                  padding: '0.4rem 0.9rem',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  background: activeCoverageSubTab === 'Aktivitas' ? '#ffffff' : 'transparent',
-                  color: activeCoverageSubTab === 'Aktivitas' ? '#0f172a' : '#64748b',
-                  boxShadow: activeCoverageSubTab === 'Aktivitas' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                Aktivitas Area Rawan
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveCoverageSubTab('Cakupan')}
-                style={{
-                  padding: '0.4rem 0.9rem',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  background: activeCoverageSubTab === 'Cakupan' ? '#ffffff' : 'transparent',
-                  color: activeCoverageSubTab === 'Cakupan' ? '#0f172a' : '#64748b',
-                  boxShadow: activeCoverageSubTab === 'Cakupan' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                Cakupan Blok Rawan
-              </button>
+          {/* Header matching Laporan section styling */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              🗺️ Analisis Coverage Area
+            </h3>
+            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
+              Scope: <strong>{globalFilters.estate !== 'ALL' ? globalFilters.estate : globalFilters.region !== 'ALL' ? globalFilters.region : globalFilters.psm}</strong> · Periode sesuai filter
             </div>
           </div>
 
@@ -2584,7 +2696,6 @@ export default function ReportsPage() {
             globalFilters={globalFilters}
             coverageMetrics={coverageMetrics}
             onOpenReportModal={setActiveReportModal}
-            initialMetric={activeCoverageSubTab}
           />
         </div>
       )}
@@ -2592,6 +2703,16 @@ export default function ReportsPage() {
       {/* 5. CARD E: IN-ROUTE / OUT-ROUTE (Route Effectiveness Tab) */}
       {activeMainCard === 'route' && (
         <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+          {/* Header matching Laporan & Coverage styling */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              📍 Analisis Kepatuhan Rute
+            </h3>
+            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
+              Scope: <strong>{globalFilters.estate !== 'ALL' ? globalFilters.estate : globalFilters.region !== 'ALL' ? globalFilters.region : globalFilters.psm}</strong> · Periode sesuai filter
+            </div>
+          </div>
+
           <RouteEffectivenessTab
             globalFilters={globalFilters}
           />

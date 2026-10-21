@@ -56,8 +56,10 @@ export default function NormalRusakSection({
   const [activeSegment, setActiveSegment] = useState<CategorySegmentKey>('ALL')
   const [filterPendingOnly, setFilterPendingOnly] = useState(false)
 
-  // Sub-filter for Urgent category
-  const [urgentSubFilter, setUrgentSubFilter] = useState<'ALL' | 'PENDING'>('PENDING')
+  // Sub-filter for report tables (Semua, Normal, Urgent)
+  const [tableCommentFilter, setTableCommentFilter] = useState<'ALL' | 'PENDING'>('ALL')
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [selectedDetailReport, setSelectedDetailReport] = useState<PatrolReportRecord | null>(null)
 
   // Sub-filter for Damage Incidents (Unit / GPS Rusak)
   const [damageStatusFilter, setDamageStatusFilter] = useState<'Belum Pulih' | 'Selesai'>('Belum Pulih')
@@ -153,9 +155,8 @@ export default function NormalRusakSection({
   const handleSelectSegment = (seg: CategorySegmentKey, pendingOnly: boolean = false) => {
     setActiveSegment(seg)
     setFilterPendingOnly(pendingOnly)
-    if (seg === 'URGENT') {
-      setUrgentSubFilter(pendingOnly ? 'PENDING' : 'ALL')
-    }
+    setTableCommentFilter(pendingOnly ? 'PENDING' : 'ALL')
+    setCurrentPage(1)
     if (seg === 'UNIT_RUSAK' || seg === 'GPS_RUSAK') {
       setDamageStatusFilter('Belum Pulih')
       // Select first incident automatically
@@ -175,10 +176,11 @@ export default function NormalRusakSection({
   // Handle saving comment for urgent report
   const handleSaveReportComment = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!commentingReport || !commentInput.trim()) return
+    const targetRep = selectedDetailReport || commentingReport
+    if (!targetRep || !commentInput.trim()) return
 
     const updated = localReports.map(r => {
-      if (r.id === commentingReport.id) {
+      if (r.id === targetRep.id) {
         const newRep = { ...r }
         if (userRole === 'Manager' || userRole === 'Admin') {
           newRep.managerComment = commentInput
@@ -196,17 +198,71 @@ export default function NormalRusakSection({
     })
 
     setLocalReports(updated)
+    const updatedTarget = updated.find(r => r.id === targetRep.id) || null
+    if (selectedDetailReport && updatedTarget) {
+      setSelectedDetailReport(updatedTarget)
+    }
     if (onUpdateReportComment) {
-      onUpdateReportComment(commentingReport.id, userRole, commentInput)
+      onUpdateReportComment(targetRep.id, userRole, commentInput)
     }
 
     setCommentSuccessMsg('Komentar berhasil disimpan. Penanda kewajiban role telah diperbarui.')
     setTimeout(() => {
-      setCommentingReport(null)
-      setCommentInput('')
       setCommentSuccessMsg('')
+      if (commentingReport) {
+        setCommentingReport(null)
+        setCommentInput('')
+      }
     }, 1200)
   }
+
+  // Handle opening Detail Modal
+  const handleOpenDetailModal = (row: PatrolReportRecord) => {
+    setSelectedDetailReport(row)
+    setCommentInput(userRole === 'Manager' ? row.managerComment || '' : row.picComment || '')
+    setCommentSuccessMsg('')
+    if (onOpenReportModal) {
+      onOpenReportModal(row)
+    }
+  }
+
+  // Base reports for current active segment (ALL, NORMAL, URGENT)
+  const currentSegmentReports = useMemo(() => {
+    if (activeSegment === 'NORMAL') return normalReportsInPeriod
+    if (activeSegment === 'URGENT') return urgentReportsInPeriod
+    if (activeSegment === 'ALL') return localReports
+    return []
+  }, [activeSegment, normalReportsInPeriod, urgentReportsInPeriod, localReports])
+
+  // Count of pending comments for role in current segment
+  const currentSegmentPendingCount = useMemo(() => {
+    if (activeSegment === 'NORMAL') return 0
+    if (activeSegment === 'URGENT') return urgentPendingCount
+    return localReports.filter(r => isReportPendingCommentForRole(r, userRole)).length
+  }, [activeSegment, urgentPendingCount, localReports, userRole])
+
+  // Filtered reports by comment status (ALL vs PENDING)
+  const filteredTableReports = useMemo(() => {
+    if (tableCommentFilter === 'PENDING') {
+      return currentSegmentReports.filter(r => isReportPendingCommentForRole(r, userRole))
+    }
+    return currentSegmentReports
+  }, [currentSegmentReports, tableCommentFilter, userRole])
+
+  // Table title according to requirement (Navy #0f172a)
+  const currentTableTitle = useMemo(() => {
+    if (activeSegment === 'NORMAL') return `Daftar Laporan Patroli — Normal (${filteredTableReports.length} laporan)`
+    if (activeSegment === 'URGENT') return `Daftar Laporan Patroli — Urgent (${filteredTableReports.length} laporan)`
+    return `Daftar Seluruh Laporan Patroli (${filteredTableReports.length} laporan)`
+  }, [activeSegment, filteredTableReports.length])
+
+  // Pagination for table
+  const PAGE_SIZE = 10
+  const totalTablePages = Math.ceil(filteredTableReports.length / PAGE_SIZE) || 1
+  const paginatedTableReports = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE
+    return filteredTableReports.slice(start, start + PAGE_SIZE)
+  }, [filteredTableReports, currentPage])
 
   // Active Incident for 2-panel view
   const currentIncidentsList = activeSegment === 'GPS_RUSAK' ? gpsRusakIncidents : unitRusakIncidents
@@ -523,221 +579,236 @@ export default function NormalRusakSection({
 
       {/* 2. DYNAMIC CONTENT AREA BASED ON SELECTED CATEGORY SEGMENT */}
 
-      {/* CATEGORY A: SEMUA & CATEGORY B: NORMAL (DAILY REPORT TABLES) */}
-      {(activeSegment === 'ALL' || activeSegment === 'NORMAL') && (
+      {/* CATEGORY A: SEMUA, B: NORMAL, C: URGENT (UNIFIED 7-COLUMN REPORT TABLES) */}
+      {(activeSegment === 'ALL' || activeSegment === 'NORMAL' || activeSegment === 'URGENT') && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
-              {activeSegment === 'ALL' ? 'Daftar Seluruh Laporan Patroli' : 'Daftar Laporan Patroli Klasifikasi Normal'} ({activeSegment === 'ALL' ? localReports.length : normalReportsInPeriod.length} laporan)
+          {/* Header row: Title on left, Segmented Control on right */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ fontSize: '0.925rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>{currentTableTitle}</span>
             </div>
-            {activeSegment === 'NORMAL' && (
-              <div style={{ fontSize: '0.75rem', color: '#166534', background: '#f0fdf4', padding: '0.2rem 0.6rem', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
-                Klasifikasi Normal: Kendaraan &amp; pelacakan beroperasi tanpa kendala teknis.
-              </div>
-            )}
+
+            {/* Segmented Control: Semua (X) | Menunggu Komentar Anda (X) */}
+            <div style={{
+              display: 'flex',
+              background: '#ffffff',
+              padding: '2px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              height: '32px',
+              alignItems: 'center',
+              boxSizing: 'border-box'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setTableCommentFilter('ALL')
+                  setCurrentPage(1)
+                }}
+                style={{
+                  padding: '0 12px',
+                  height: '26px',
+                  border: tableCommentFilter === 'ALL' ? '1px solid #bfdbfe' : 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: tableCommentFilter === 'ALL' ? '#eff6ff' : 'transparent',
+                  color: tableCommentFilter === 'ALL' ? '#2563eb' : '#64748B',
+                  transition: 'all 0.15s ease',
+                  fontFamily: 'inherit',
+                  lineHeight: 1
+                }}
+              >
+                Semua ({currentSegmentReports.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTableCommentFilter('PENDING')
+                  setCurrentPage(1)
+                }}
+                style={{
+                  padding: '0 12px',
+                  height: '26px',
+                  border: tableCommentFilter === 'PENDING' ? '1px solid #bfdbfe' : 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: tableCommentFilter === 'PENDING' ? '#eff6ff' : 'transparent',
+                  color: tableCommentFilter === 'PENDING' ? '#2563eb' : '#64748B',
+                  transition: 'all 0.15s ease',
+                  fontFamily: 'inherit',
+                  lineHeight: 1
+                }}
+              >
+                Menunggu Komentar Anda ({currentSegmentPendingCount})
+              </button>
+            </div>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
+          {/* Unified 7-Column Table */}
+          <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff' }}>
             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-              <thead>
-                <tr style={{ background: '#e2e8f0', textTransform: 'uppercase', fontSize: '0.7rem', color: '#475569' }}>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Tanggal</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Estate</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Nopol / Unit</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'center' }}>Status Pengiriman</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Kategori Laporan</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Status Review Manager</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'center' }}>Detail</th>
+              <thead style={{ background: '#e2e8f0' }}>
+                <tr style={{ textTransform: 'uppercase', fontSize: '0.7rem', color: '#475569', fontWeight: 700, letterSpacing: '0.02em' }}>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left' }}>Tanggal</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left' }}>Estate</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left' }}>Nopol / Unit</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>Status Pengiriman</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left' }}>Kategori Laporan</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left' }}>Status Review Manager</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>Detail</th>
                 </tr>
               </thead>
               <tbody>
-                {(activeSegment === 'ALL' ? localReports : normalReportsInPeriod).map(row => (
-                  <tr key={row.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '0.55rem', fontWeight: 600 }}>{row.date}</td>
-                    <td style={{ padding: '0.55rem' }}>{row.estateId}</td>
-                    <td style={{ padding: '0.55rem', fontWeight: 700 }}>{row.vehicleId}</td>
-                    <td style={{ padding: '0.55rem', textAlign: 'center' }}>
-                      <span style={{
-                        padding: '0.15rem 0.45rem',
-                        borderRadius: '12px',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        background: row.submissionStatus === 'Sudah Dikirim' ? '#dcfce7' : '#fee2e2',
-                        color: row.submissionStatus === 'Sudah Dikirim' ? '#15803d' : '#b91c1c'
-                      }}>
-                        {row.submissionStatus}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.55rem' }}>
-                      <span style={{
-                        padding: '0.15rem 0.45rem',
-                        borderRadius: '4px',
-                        fontSize: '0.725rem',
-                        fontWeight: 700,
-                        background: row.reportType === 'Normal' ? '#dbeafe' : (row.reportType === 'Urgent' ? '#ffedd5' : (row.reportType === 'Unit Rusak' ? '#fef3c7' : '#fee2e2')),
-                        color: row.reportType === 'Normal' ? '#1e40af' : (row.reportType === 'Urgent' ? '#c2410c' : (row.reportType === 'Unit Rusak' ? '#92400e' : '#b91c1c'))
-                      }}>
-                        {row.reportType}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.55rem' }}>
-                      {row.managerComment ? (
-                        <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 600 }}>Reviewed ({row.managerRating || 'Approved'})</span>
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Belum Ditinjau</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '0.55rem', textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => onOpenReportModal && onOpenReportModal(row)}
-                        title="Lihat Detail Laporan"
-                        style={{ padding: '0.2rem 0.5rem', background: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}
-                      >
-                        🔍
-                      </button>
+                {paginatedTableReports.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: '0.825rem' }}>
+                      Tidak ada laporan yang sesuai dengan filter ini.
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* CATEGORY C: URGENT (URGENT REPORTS & INLINE COMMENTING) */}
-      {activeSegment === 'URGENT' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ea580c', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Flame size={18} /> Laporan Urgent Berdasarkan Kepatuhan Comment
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.1rem' }}>
-                Laporan urgent membutuhkan persetujuan/komentar wajib dari role berwenang ({userRole}).
-              </div>
-            </div>
-
-            {/* Sub-toggle: Semua vs Menunggu Komentar Anda */}
-            <div style={{ display: 'flex', gap: '0.3rem', background: '#f1f5f9', padding: '0.2rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-              <button
-                type="button"
-                onClick={() => setUrgentSubFilter('ALL')}
-                style={{
-                  padding: '0.3rem 0.7rem',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.775rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  background: urgentSubFilter === 'ALL' ? '#ffffff' : 'transparent',
-                  color: urgentSubFilter === 'ALL' ? '#0f172a' : '#64748b',
-                  boxShadow: urgentSubFilter === 'ALL' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                Semua ({urgentReportsInPeriod.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setUrgentSubFilter('PENDING')}
-                style={{
-                  padding: '0.3rem 0.7rem',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.775rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  background: urgentSubFilter === 'PENDING' ? '#ea580c' : 'transparent',
-                  color: urgentSubFilter === 'PENDING' ? '#ffffff' : '#64748b',
-                  boxShadow: urgentSubFilter === 'PENDING' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                Menunggu Komentar Anda ({urgentPendingCount})
-              </button>
-            </div>
-          </div>
-
-          {/* Urgent Reports Table */}
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-              <thead>
-                <tr style={{ background: '#e2e8f0', textTransform: 'uppercase', fontSize: '0.7rem', color: '#475569' }}>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Tanggal</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Estate</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Nopol / Unit</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Catatan PIC</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'left' }}>Catatan Manager</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'center' }}>Penanda Aksi</th>
-                  <th style={{ padding: '0.55rem', textAlign: 'center' }}>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {urgentReportsInPeriod
-                  .filter(r => {
-                    if (urgentSubFilter === 'PENDING') return isReportPendingCommentForRole(r, userRole)
-                    return true
-                  })
-                  .map(row => {
-                    const isPending = isReportPendingCommentForRole(row, userRole)
+                ) : (
+                  paginatedTableReports.map((row, idx) => {
+                    const isZebra = idx % 2 === 1
                     return (
-                      <tr key={row.id} style={{ borderBottom: '1px solid #e2e8f0', background: isPending ? '#fff7ed' : 'transparent' }}>
-                        <td style={{ padding: '0.55rem', fontWeight: 600 }}>{row.date}</td>
-                        <td style={{ padding: '0.55rem' }}>{row.estateId}</td>
-                        <td style={{ padding: '0.55rem', fontWeight: 700 }}>{row.vehicleId}</td>
-                        <td style={{ padding: '0.55rem' }}>
-                          <span style={{ fontSize: '0.75rem', color: row.picComment ? '#1e293b' : '#94a3b8', fontStyle: row.picComment ? 'normal' : 'italic' }}>
-                            {row.picComment || 'Belum ada catatan PIC'}
+                      <tr
+                        key={row.id}
+                        style={{
+                          borderBottom: '1px solid #e2e8f0',
+                          background: isZebra ? '#f8fafc' : '#ffffff',
+                          transition: 'background 0.15s ease'
+                        }}
+                      >
+                        <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600, color: '#0f172a' }}>{row.date}</td>
+                        <td style={{ padding: '0.6rem 0.75rem', color: '#334155' }}>{row.estateId}</td>
+                        <td style={{ padding: '0.6rem 0.75rem', fontWeight: 700, color: '#0f172a' }}>{row.vehicleId}</td>
+                        <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>
+                          <span style={{
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '12px',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            background: row.submissionStatus === 'Sudah Dikirim' ? '#dcfce7' : '#fee2e2',
+                            color: row.submissionStatus === 'Sudah Dikirim' ? '#15803d' : '#b91c1c'
+                          }}>
+                            {row.submissionStatus}
                           </span>
                         </td>
-                        <td style={{ padding: '0.55rem' }}>
-                          <span style={{ fontSize: '0.75rem', color: row.managerComment ? '#15803d' : '#94a3b8', fontStyle: row.managerComment ? 'normal' : 'italic' }}>
-                            {row.managerComment || 'Belum ada catatan Manager'}
+                        <td style={{ padding: '0.6rem 0.75rem' }}>
+                          <span style={{
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '4px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            background:
+                              row.reportType === 'Normal' ? '#dbeafe' :
+                              row.reportType === 'Urgent' ? '#ffedd5' :
+                              row.reportType === 'Unit Rusak' ? '#fef3c7' : '#fee2e2',
+                            color:
+                              row.reportType === 'Normal' ? '#1e40af' :
+                              row.reportType === 'Urgent' ? '#c2410c' :
+                              row.reportType === 'Unit Rusak' ? '#92400e' : '#b91c1c'
+                          }}>
+                            {row.reportType}
                           </span>
                         </td>
-                        <td style={{ padding: '0.55rem', textAlign: 'center' }}>
-                          {isPending ? (
-                            <span
-                              title={`Laporan urgent menunggu komentar dari role ${userRole}`}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0.15rem 0.5rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 800 }}
-                            >
-                              <AlertCircle size={13} /> Menunggu {userRole}
+                        <td style={{ padding: '0.6rem 0.75rem' }}>
+                          {row.managerComment ? (
+                            <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <CheckCircle size={13} /> Reviewed ({row.managerRating || 'Approved'})
+                            </span>
+                          ) : row.reportType === 'Urgent' && isReportPendingCommentForRole(row, userRole) ? (
+                            <span style={{ fontSize: '0.75rem', color: '#c2410c', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <AlertCircle size={13} /> Menunggu Review
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0.15rem 0.5rem', background: '#dcfce7', color: '#15803d', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 700 }}>
-                              <CheckCircle size={13} /> Selesai Review
-                            </span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Belum Ditinjau</span>
                           )}
                         </td>
-                        <td style={{ padding: '0.55rem', textAlign: 'center' }}>
+                        <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>
                           <button
                             type="button"
-                            onClick={() => {
-                              setCommentingReport(row)
-                              setCommentInput(userRole === 'Manager' ? row.managerComment || '' : row.picComment || '')
-                            }}
+                            onClick={() => handleOpenDetailModal(row)}
+                            title="Lihat Detail & Tindak Lanjut"
                             style={{
                               padding: '0.25rem 0.6rem',
-                              background: isPending ? '#ea580c' : '#f1f5f9',
-                              color: isPending ? '#ffffff' : '#0f172a',
-                              border: isPending ? 'none' : '1px solid #cbd5e1',
+                              background: '#f8fafc',
+                              color: '#0f172a',
+                              border: '1px solid #cbd5e1',
                               borderRadius: '4px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
                               cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
+                              fontSize: '0.75rem',
+                              fontWeight: 600
                             }}
                           >
-                            <MessageSquare size={13} /> Beri Komentar
+                            🔍
                           </button>
                         </td>
                       </tr>
                     )
-                  })}
+                  })
+                )}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredTableReports.length > PAGE_SIZE && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '0.75rem 0.5rem',
+              marginTop: '0.5rem',
+              fontSize: '0.775rem',
+              color: '#64748b'
+            }}>
+              <div>
+                Menampilkan {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredTableReports.length)}–{Math.min(currentPage * PAGE_SIZE, filteredTableReports.length)} dari {filteredTableReports.length} laporan
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  style={{
+                    padding: '0.25rem 0.65rem',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '5px',
+                    background: currentPage === 1 ? '#f8fafc' : '#ffffff',
+                    color: currentPage === 1 ? '#94a3b8' : '#0f172a',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Sebelumnya
+                </button>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155', padding: '0 4px' }}>
+                  {currentPage} / {totalTablePages}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalTablePages}
+                  onClick={() => setCurrentPage(p => Math.min(totalTablePages, p + 1))}
+                  style={{
+                    padding: '0.25rem 0.65rem',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '5px',
+                    background: currentPage >= totalTablePages ? '#f8fafc' : '#ffffff',
+                    color: currentPage >= totalTablePages ? '#94a3b8' : '#0f172a',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: currentPage >= totalTablePages ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Berikutnya
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1085,60 +1156,152 @@ export default function NormalRusakSection({
         </div>
       )}
 
-      {/* INLINE COMMENT MODAL FOR URGENT REPORTS */}
-      {commentingReport && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-          <div style={{ background: '#ffffff', borderRadius: '12px', maxWidth: '520px', width: '100%', padding: '1.25rem', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.6rem' }}>
-              <h4 style={{ margin: 0, fontSize: '1rem', color: '#ea580c', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <MessageSquare size={16} /> Beri Komentar Laporan Urgent (#{commentingReport.id})
-              </h4>
-              <button onClick={() => setCommentingReport(null)} style={{ border: 'none', background: 'transparent', fontSize: '1.1rem', cursor: 'pointer' }}>✕</button>
-            </div>
-
-            <div style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '0.85rem' }}>
-              Memberikan komentar untuk role: <strong style={{ color: '#2563eb' }}>{userRole}</strong>. Klasifikasi laporan tetap disimpan sebagai <strong style={{ color: '#ea580c' }}>Urgent</strong>.
-            </div>
-
-            {commentSuccessMsg ? (
-              <div style={{ background: '#dcfce7', color: '#15803d', padding: '0.75rem', borderRadius: '6px', fontSize: '0.825rem', fontWeight: 700, textAlign: 'center' }}>
-                {commentSuccessMsg}
-              </div>
-            ) : (
-              <form onSubmit={handleSaveReportComment}>
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
-                    Tulis Komentar &amp; Pengarahan Penanganan:
-                  </label>
-                  <textarea
-                    rows={4}
-                    required
-                    value={commentInput}
-                    onChange={(e) => setCommentInput(e.target.value)}
-                    placeholder="Contoh: Harap segera tindak lanjuti inspeksi fisik di blok rawan D-12..."
-                    style={{ width: '100%', padding: '0.6rem', fontSize: '0.825rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+      {/* DETAIL & COMMENT MODAL FOR PATROL REPORTS */}
+      {(selectedDetailReport || commentingReport) && (
+        (() => {
+          const rep = selectedDetailReport || commentingReport!
+          return (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
+              <div style={{ background: '#ffffff', borderRadius: '12px', maxWidth: '580px', width: '100%', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
+                {/* Modal Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+                      Detail Laporan Patroli #{rep.id}
+                    </h4>
+                    <span style={{
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background:
+                        rep.reportType === 'Normal' ? '#dbeafe' :
+                        rep.reportType === 'Urgent' ? '#ffedd5' :
+                        rep.reportType === 'Unit Rusak' ? '#fef3c7' : '#fee2e2',
+                      color:
+                        rep.reportType === 'Normal' ? '#1e40af' :
+                        rep.reportType === 'Urgent' ? '#c2410c' :
+                        rep.reportType === 'Unit Rusak' ? '#92400e' : '#b91c1c'
+                    }}>
+                      {rep.reportType}
+                    </span>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setCommentingReport(null)}
-                    style={{ padding: '0.45rem 0.85rem', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                    onClick={() => {
+                      setSelectedDetailReport(null)
+                      setCommentingReport(null)
+                    }}
+                    style={{ border: 'none', background: 'transparent', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}
                   >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    style={{ padding: '0.45rem 1rem', background: '#ea580c', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Send size={14} /> Simpan Komentar
+                    ✕
                   </button>
                 </div>
-              </form>
-            )}
-          </div>
-        </div>
+
+                {/* Metadata Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.825rem', marginBottom: '1rem' }}>
+                  <div>Tanggal Patroli: <strong>{rep.date}</strong></div>
+                  <div>Estate: <strong>{rep.estateId}</strong></div>
+                  <div>Unit Kendaraan: <strong>{rep.vehicleId}</strong></div>
+                  <div>
+                    Status Pengiriman:{' '}
+                    <span style={{
+                      padding: '0.1rem 0.45rem',
+                      borderRadius: '10px',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      background: rep.submissionStatus === 'Sudah Dikirim' ? '#dcfce7' : '#fee2e2',
+                      color: rep.submissionStatus === 'Sudah Dikirim' ? '#15803d' : '#b91c1c'
+                    }}>
+                      {rep.submissionStatus}
+                    </span>
+                  </div>
+                  <div>Kategori Utama: <strong>{rep.reportType}</strong></div>
+                  <div>Upload Timestamp: <strong>{rep.uploadDate || '—'}</strong></div>
+                  <div style={{ gridColumn: 'span 2' }}>Status Review: <strong>{rep.status}</strong></div>
+                </div>
+
+                {/* Catatan PIC */}
+                <div style={{ background: '#f8fafc', padding: '0.75rem 0.9rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '0.85rem' }}>
+                  <h5 style={{ margin: '0 0 0.3rem 0', fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                    Catatan PIC Patroli:
+                  </h5>
+                  <p style={{ margin: 0, fontSize: '0.825rem', color: '#475569', fontStyle: rep.picComment ? 'normal' : 'italic' }}>
+                    {rep.picComment || 'Belum ada catatan PIC.'}
+                  </p>
+                </div>
+
+                {/* Catatan & Keputusan Manager */}
+                <div style={{ background: '#f8fafc', padding: '0.75rem 0.9rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                  <h5 style={{ margin: '0 0 0.3rem 0', fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                    Catatan &amp; Keputusan Manager:
+                  </h5>
+                  <p style={{ margin: 0, fontSize: '0.825rem', color: '#475569', fontStyle: rep.managerComment ? 'normal' : 'italic' }}>
+                    {rep.managerComment || 'Belum ditinjau Manager.'}
+                  </p>
+                </div>
+
+                {/* Form Komentar for Urgent Reports or Role Action */}
+                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.85rem' }}>
+                  <h5 style={{ margin: '0 0 0.45rem 0', fontSize: '0.825rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <MessageSquare size={14} style={{ color: '#2563eb' }} />
+                    Form Komentar / Tindak Lanjut (Role: {userRole})
+                  </h5>
+
+                  {commentSuccessMsg ? (
+                    <div style={{ background: '#dcfce7', color: '#15803d', padding: '0.65rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', marginBottom: '0.85rem' }}>
+                      {commentSuccessMsg}
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSaveReportComment}>
+                      <div style={{ marginBottom: '0.85rem' }}>
+                        <textarea
+                          rows={3}
+                          value={commentInput}
+                          onChange={(e) => setCommentInput(e.target.value)}
+                          placeholder={`Tulis arahan tindak lanjut sebagai ${userRole}...`}
+                          style={{ width: '100%', padding: '0.55rem', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDetailReport(null)
+                            setCommentingReport(null)
+                          }}
+                          style={{ padding: '0.4rem 0.85rem', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: '#475569' }}
+                        >
+                          Tutup
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={!commentInput.trim()}
+                          style={{
+                            padding: '0.4rem 0.95rem',
+                            background: commentInput.trim() ? '#2563eb' : '#94a3b8',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            cursor: commentInput.trim() ? 'pointer' : 'not-allowed',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Send size={13} /> Simpan Komentar
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })()
       )}
     </div>
   )
