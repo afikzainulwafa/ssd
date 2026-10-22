@@ -13,6 +13,7 @@ export interface HierarchyFilterState {
   month?: string
   dateRange?: string
   unitType?: string
+  vehicleId?: string
 }
 
 export type PeriodPreset = 'Bulan Ini' | 'Bulan Lalu' | '30 Hari Terakhir' | 'Rentang Kustom'
@@ -21,6 +22,8 @@ interface HierarchyFilterBarProps {
   filterState: HierarchyFilterState
   onChange: (newState: HierarchyFilterState) => void
   showUnitTypeFilter?: boolean
+  showVehicleFilter?: boolean
+  vehicleOptions?: Array<{ id: string; label: string; estateId?: string }>
   useCompactPeriodDropdown?: boolean
   datePreset?: PeriodPreset
   customStartDate?: string
@@ -56,6 +59,8 @@ export default function HierarchyFilterBar({
   filterState,
   onChange,
   showUnitTypeFilter = false,
+  showVehicleFilter = false,
+  vehicleOptions = [],
   useCompactPeriodDropdown = false,
   datePreset = 'Bulan Ini',
   customStartDate = '2026-05-01',
@@ -281,13 +286,36 @@ export default function HierarchyFilterBar({
         className="filter-select"
         aria-label="Estate"
         value={filterState.estate}
-        onChange={(e) => onChange({ ...filterState, estate: e.target.value })}
+        onChange={(e) => {
+          const newEstate = e.target.value
+          let newVehicle = filterState.vehicleId
+          if (newVehicle && newVehicle !== 'ALL' && vehicleOptions && vehicleOptions.length > 0) {
+            const stillValid = vehicleOptions.some(v => v.id === newVehicle && (newEstate === 'ALL' || !v.estateId || v.estateId === newEstate))
+            if (!stillValid) newVehicle = 'ALL'
+          }
+          onChange({ ...filterState, estate: newEstate, vehicleId: newVehicle })
+        }}
       >
         <option value="ALL">ALL ESTATE</option>
         {estateOptions.map(e => (
           <option key={e} value={e}>{e}</option>
         ))}
       </select>
+
+      {/* VEHICLE / NOPOL Filter */}
+      {showVehicleFilter && (
+        <select
+          className="filter-select"
+          aria-label="Semua Kendaraan"
+          value={filterState.vehicleId || 'ALL'}
+          onChange={(e) => onChange({ ...filterState, vehicleId: e.target.value })}
+        >
+          <option value="ALL">Semua Kendaraan</option>
+          {vehicleOptions.map(v => (
+            <option key={v.id} value={v.id}>{v.label}</option>
+          ))}
+        </select>
+      )}
 
       {/* PERIOD FILTER: Compact Dropdown */}
       {useCompactPeriodDropdown && (
