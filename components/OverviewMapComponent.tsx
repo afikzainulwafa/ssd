@@ -114,6 +114,10 @@ interface OverviewMapComponentProps {
   showSpeeding: boolean
   showStops: boolean
   showOutRoute: boolean
+  vehiclePanelOpen?: boolean
+  focusVehicleId?: string | null
+  fitEstateTrigger?: number
+  topControlsOffset?: number
   onSelectVehicle: (vehicleId: string | null) => void
   onSelectBlock: (block: BlockCoverageDetail | null) => void
   onPausePlayback?: () => void
@@ -138,6 +142,10 @@ export default function OverviewMapComponent({
   showSpeeding,
   showStops,
   showOutRoute,
+  vehiclePanelOpen = false,
+  focusVehicleId = null,
+  fitEstateTrigger = 0,
+  topControlsOffset = 204,
   onSelectVehicle,
   onSelectBlock,
   onPausePlayback
@@ -146,6 +154,7 @@ export default function OverviewMapComponent({
   const mapRef = useRef<any>(null)
   const dynamicLayersRef = useRef<any[]>([])
   const initialFittedRef = useRef<boolean>(false)
+  const estateBoundsRef = useRef<any>(null)
 
   const [geoData, setGeoData] = useState<any | null>(null)
 
@@ -182,7 +191,7 @@ export default function OverviewMapComponent({
       const map = L.map(containerRef.current, {
         center: [2.302, 99.970],
         zoom: 13,
-        zoomControl: true
+        zoomControl: false // Custom zoom controls positioned to not clash with floating panels
       })
 
       // ArcGIS World Imagery Satellite Basemap
@@ -205,6 +214,53 @@ export default function OverviewMapComponent({
       }
     }
   }, [])
+
+  // Helper to fit bounds to whole estate considering panel visibility
+  const fitEstateBounds = () => {
+    const map = mapRef.current
+    if (!map || !L || !estateBoundsRef.current || !estateBoundsRef.current.isValid()) return
+    const pad = {
+      paddingTopLeft: [50, 210],
+      paddingBottomRight: [vehiclePanelOpen ? 370 : 50, 80],
+      maxZoom: 14
+    }
+    map.fitBounds(estateBoundsRef.current, pad)
+  }
+
+  // Effect to react to fitEstateTrigger
+  useEffect(() => {
+    if (fitEstateTrigger > 0) {
+      fitEstateBounds()
+    }
+  }, [fitEstateTrigger])
+
+  // Invalidate map size on vehicle panel toggle without forcibly moving user's current view
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const timer = setTimeout(() => {
+      map.invalidateSize()
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [vehiclePanelOpen])
+
+  // Effect to focus on a specific vehicle when focusVehicleId changes
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !L || !focusVehicleId) return
+    const veh = vehicles.find(v => v.vehicleId === focusVehicleId)
+    if (veh && veh.allPoints.length > 0) {
+      const vBounds = L.latLngBounds(veh.allPoints.map(p => [p.lat, p.lng]))
+      if (vBounds.isValid()) {
+        const pad = {
+          paddingTopLeft: [60, 210],
+          paddingBottomRight: [vehiclePanelOpen ? 370 : 60, 80],
+          maxZoom: 15
+        }
+        map.fitBounds(vBounds, pad)
+      }
+    }
+  }, [focusVehicleId, vehiclePanelOpen, vehicles])
 
   // Helper: Calculate mock vehicle frequency for a given block code
   const getBlockCoverageDetail = (blokCode: string, isRawan: boolean): BlockCoverageDetail => {
@@ -328,19 +384,21 @@ export default function OverviewMapComponent({
           const props = feature.properties || {}
           const blokCode = (props.blok || props.nama_bl || props.blockCode || 'BLOK').toUpperCase()
           const isRawan = props.isRawan ?? (blokCode.includes('48') || blokCode.includes('39') || blokCode.includes('60') || blokCode.includes('55') || blokCode.includes('50') || blokCode.includes('52'))
+          const isSelected = selectedBlockCode === blokCode
           const detail = getBlockCoverageDetail(blokCode, isRawan)
 
           // Polygon Plain Label (Centered inside polygon)
           try {
             const center = layer.getBounds().getCenter()
-            const labelText = mapMode === 'frequency' ? `${blokCode} (${detail.totalFrequency}×)` : blokCode
+            const shortCode = blokCode.replace(/BLOK\s*/gi, '').trim()
+            const labelText = mapMode === 'frequency' ? `${shortCode} (${detail.totalFrequency}×)` : shortCode
 
             const labelMarker = L.marker(center, {
               icon: L.divIcon({
                 className: '',
-                html: `<div style="font-size:10px; font-weight:800; color:${isRawan ? '#fca5a5' : '#93c5fd'}; text-shadow:0 1px 3px #000; white-space:nowrap; pointer-events:none;">${labelText}</div>`,
-                iconSize: [50, 14],
-                iconAnchor: [25, 7]
+                html: `<div style="font-family:'Poppins',sans-serif; font-size:10px; font-weight:700; color:#ffffff; text-shadow:0 1px 3px #000; letter-spacing:0.5px; white-space:nowrap; pointer-events:none; opacity:${isRawan || isSelected ? 1 : 0.85};">${labelText}</div>`,
+                iconSize: [40, 14],
+                iconAnchor: [20, 7]
               }),
               interactive: false
             })
@@ -483,21 +541,24 @@ export default function OverviewMapComponent({
         const startPt = sp.points[0]
         const speedIcon = L.divIcon({
           className: '',
-          html: `<div style="background:#ec4899; color:#ffffff; width:24px; height:24px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 8px rgba(236,72,153,0.8); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; cursor:pointer;" title="${sp.eventNo}">⚡</div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
+          html: `<div style="background:#d946ef; color:#ffffff; width:22px; height:22px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; cursor:pointer;" title="${sp.eventNo}">⚡</div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
         })
 
         const speedMarker = L.marker(startPt, { icon: speedIcon }).addTo(map)
         const popupHtml = `
-          <div style="font-family:sans-serif; padding:3px; font-size:11px; max-width:240px;">
-            <b style="color:#be185d; font-size:12px;">⚡ ${sp.eventNo}</b><br/>
-            <b>Kendaraan:</b> ${sp.nopol}<br/>
-            <b>Waktu Mulai:</b> ${sp.startTime}<br/>
-            <b>Kecepatan Maksimum:</b> <span style="color:#dc2626; font-weight:800;">${sp.maxSpeedKmH} km/h</span><br/>
-            <b>Durasi & Jarak:</b> ${sp.durationMins} menit (${sp.distanceKm} km)<br/>
-            <b>Catatan Pelanggaran:</b><br/>
-            <span style="color:#475569; background:#fdf2f8; padding:3px 6px; border-radius:4px; display:inline-block; margin-top:2px;">${sp.comment}</span>
+          <div style="font-family:'Poppins',sans-serif; padding:4px; font-size:11px; max-width:240px; color:#0f172a;">
+            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+              <span style="background:#d946ef; color:#fff; width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800;">⚡</span>
+              <b style="color:#0f172a; font-size:12px;">Kecepatan &gt;50 km/jam</b>
+            </div>
+            <div style="color:#475569; font-size:11px; margin-bottom:2px;"><b>Kendaraan:</b> ${sp.nopol}</div>
+            <div style="color:#475569; font-size:11px; margin-bottom:2px;"><b>Waktu Mulai:</b> ${sp.startTime}</div>
+            <div style="color:#475569; font-size:11px; margin-bottom:2px;"><b>Kecepatan Maks:</b> <span style="color:#dc2626; font-weight:800;">${sp.maxSpeedKmH} km/h</span></div>
+            <div style="color:#475569; font-size:11px; margin-bottom:4px;"><b>Durasi & Jarak:</b> ${sp.durationMins} m (${sp.distanceKm} km)</div>
+            <div style="color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 6px; border-radius:4px; font-size:10px; line-height:1.4;">${sp.comment}</div>
+            <a href="/hasil-laporan-patroli?vehicleId=${sp.vehicleId}&date=2026-09-02" style="display:inline-flex; align-items:center; gap:4px; margin-top:8px; color:#2563eb; font-weight:700; font-size:11px; text-decoration:none;">Lihat di Laporan ↗</a>
           </div>
         `
         segLine.bindPopup(popupHtml)
@@ -519,21 +580,24 @@ export default function OverviewMapComponent({
 
         const stopIcon = L.divIcon({
           className: '',
-          html: `<div style="background:#f59e0b; color:#ffffff; width:24px; height:24px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 8px rgba(245,158,11,0.8); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; cursor:pointer;" title="${stop.eventNo}">🛑</div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
+          html: `<div style="background:#dc2626; color:#ffffff; width:22px; height:22px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; cursor:pointer;" title="${stop.eventNo}">⦿</div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
         })
 
         const stopMarker = L.marker([stop.lat, stop.lng], { icon: stopIcon }).addTo(map)
         const popupHtml = `
-          <div style="font-family:sans-serif; padding:3px; font-size:11px; max-width:240px;">
-            <b style="color:#b45309; font-size:12px;">🛑 ${stop.eventNo}</b><br/>
-            <b>Kendaraan:</b> ${stop.nopol}<br/>
-            <b>Waktu:</b> ${stop.startTime} – ${stop.endTime}<br/>
-            <b>Durasi Berhenti:</b> ${stop.durationMins} menit (&gt;30m)<br/>
-            <b>Lokasi:</b> ${stop.locationLabel}<br/>
-            <b>Catatan Pelanggaran:</b><br/>
-            <span style="color:#475569; background:#fffbeb; padding:3px 6px; border-radius:4px; display:inline-block; margin-top:2px;">${stop.comment}</span>
+          <div style="font-family:'Poppins',sans-serif; padding:4px; font-size:11px; max-width:240px; color:#0f172a;">
+            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+              <span style="background:#dc2626; color:#fff; width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800;">⦿</span>
+              <b style="color:#0f172a; font-size:12px;">Berhenti &gt;30 menit</b>
+            </div>
+            <div style="color:#475569; font-size:11px; margin-bottom:2px;"><b>Kendaraan:</b> ${stop.nopol}</div>
+            <div style="color:#475569; font-size:11px; margin-bottom:2px;"><b>Waktu:</b> ${stop.startTime} – ${stop.endTime}</div>
+            <div style="color:#475569; font-size:11px; margin-bottom:2px;"><b>Durasi Berhenti:</b> <span style="color:#b45309; font-weight:800;">${stop.durationMins} menit</span></div>
+            <div style="color:#475569; font-size:11px; margin-bottom:4px;"><b>Lokasi:</b> ${stop.locationLabel}</div>
+            <div style="color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 6px; border-radius:4px; font-size:10px; line-height:1.4;">${stop.comment}</div>
+            <a href="/hasil-laporan-patroli?vehicleId=${stop.vehicleId}&date=2026-09-02" style="display:inline-flex; align-items:center; gap:4px; margin-top:8px; color:#2563eb; font-weight:700; font-size:11px; text-decoration:none;">Lihat di Laporan ↗</a>
           </div>
         `
         stopMarker.bindPopup(popupHtml)
@@ -551,29 +615,32 @@ export default function OverviewMapComponent({
         if (veh && !veh.isVisible) return
 
         const segLine = L.polyline(or.points, {
-          color: '#d97706',
-          weight: 6,
-          opacity: 0.9,
+          color: '#f59e0b',
+          weight: 5,
+          opacity: 0.85,
           dashArray: '8, 8'
         }).addTo(map)
 
         const startPt = or.points[0]
         const warnIcon = L.divIcon({
           className: '',
-          html: `<div style="background:#d97706; color:#ffffff; width:22px; height:22px; border-radius:4px; border:2px solid #ffffff; box-shadow:0 0 6px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; cursor:pointer;" title="${or.eventNo}">⚠️</div>`,
+          html: `<div style="background:#f59e0b; color:#ffffff; width:22px; height:22px; border-radius:4px; border:2px solid #ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; cursor:pointer;" title="${or.eventNo}">▲</div>`,
           iconSize: [22, 22],
           iconAnchor: [11, 11]
         })
 
         const warnMarker = L.marker(startPt, { icon: warnIcon }).addTo(map)
         const popupHtml = `
-          <div style="font-family:sans-serif; padding:3px; font-size:11px; max-width:240px;">
-            <b style="color:#d97706; font-size:12px;">⚠️ ${or.eventNo}</b><br/>
-            <b>Kendaraan:</b> ${or.nopol}<br/>
-            <b>Waktu Mulai:</b> ${or.startTime}<br/>
-            <b>Durasi Out-Route:</b> ${or.durationMins} menit (${or.distanceKm} km)<br/>
-            <b>Catatan Pelanggaran:</b><br/>
-            <span style="color:#475569; background:#fff8f1; padding:3px 6px; border-radius:4px; display:inline-block; margin-top:2px;">${or.reason}</span>
+          <div style="font-family:'Poppins',sans-serif; padding:4px; font-size:11px; max-width:240px; color:#0f172a;">
+            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+              <span style="background:#f59e0b; color:#fff; width:18px; height:18px; border-radius:3px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:800;">▲</span>
+              <b style="color:#0f172a; font-size:12px;">Keluar Rute / Koridor</b>
+            </div>
+            <div style="color:#475569; font-size:11px; margin-bottom:2px;"><b>Kendaraan:</b> ${or.nopol}</div>
+            <div style="color:#475569; font-size:11px; margin-bottom:2px;"><b>Waktu Mulai:</b> ${or.startTime}</div>
+            <div style="color:#475569; font-size:11px; margin-bottom:4px;"><b>Durasi & Jarak:</b> ${or.durationMins} m (${or.distanceKm} km)</div>
+            <div style="color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 6px; border-radius:4px; font-size:10px; line-height:1.4;">${or.reason}</div>
+            <a href="/hasil-laporan-patroli?vehicleId=${or.vehicleId}&date=2026-09-02" style="display:inline-flex; align-items:center; gap:4px; margin-top:8px; color:#2563eb; font-weight:700; font-size:11px; text-decoration:none;">Lihat di Laporan ↗</a>
           </div>
         `
         segLine.bindPopup(popupHtml)
@@ -593,15 +660,15 @@ export default function OverviewMapComponent({
       incidents.forEach(inc => {
         const incidentIcon = L.divIcon({
           className: '',
-          html: `<div style="background:#dc2626; color:#ffffff; width:28px; height:28px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 12px rgba(220,38,38,0.95); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:bold; cursor:pointer;" title="${inc.title}">🚨</div>`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14]
+          html: `<div style="background:#e11d48; color:#ffffff; width:26px; height:26px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 2px 6px rgba(225,29,72,0.7); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:bold; cursor:pointer;" title="${inc.title}">📍</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
         })
 
         const incMarker = L.marker([inc.lat, inc.lng], { icon: incidentIcon }).addTo(map)
 
         const popupHtml = `
-          <div style="font-family:sans-serif; padding:4px; min-width:240px; max-width:280px;">
+          <div style="font-family:'Poppins',sans-serif; padding:4px; min-width:240px; max-width:280px; color:#0f172a;">
             <div style="background:#fef2f2; color:#991b1b; padding:4px 8px; border-radius:4px; font-weight:800; font-size:12px; border-left:4px solid #dc2626; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
               <span>🚨 ${inc.title}</span>
               <span style="font-size:10px; opacity:0.85;">${inc.time}</span>
@@ -612,9 +679,10 @@ export default function OverviewMapComponent({
             <div style="font-size:11px; color:#334155; background:#f8fafc; padding:6px; border-radius:4px; border:1px solid #e2e8f0; margin-bottom:6px; line-height:1.4;">
               ${inc.summary}
             </div>
-            <div style="font-size:10px; color:#0369a1; font-weight:700;">
+            <div style="font-size:10px; color:#0369a1; font-weight:700; margin-bottom:6px;">
               <b>Tindak Lanjut:</b> ${inc.followUp}
             </div>
+            <a href="/hasil-laporan-patroli?estate=${estateId}&date=2026-09-02" style="display:inline-flex; align-items:center; gap:4px; color:#2563eb; font-weight:700; font-size:11px; text-decoration:none;">Lihat di Laporan ↗</a>
           </div>
         `
         incMarker.bindPopup(popupHtml)
@@ -625,9 +693,12 @@ export default function OverviewMapComponent({
       })
     }
 
+    // Save estate bounds
+    estateBoundsRef.current = bounds
+
     // Initial fit bounds once to encompass tracks & incident coordinates
     if (bounds.isValid() && !initialFittedRef.current) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
+      fitEstateBounds()
       initialFittedRef.current = true
     }
   }, [
@@ -653,63 +724,103 @@ export default function OverviewMapComponent({
   ])
 
   return (
-    <div style={{ width: '100%', height: '100%', borderRadius: '8px', minHeight: '540px', background: '#0f172a', position: 'relative' }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: '540px', borderRadius: '8px' }} />
+    <div style={{ width: '100%', height: '100%', minHeight: '100%', background: '#0f172a', position: 'relative', overflow: 'hidden' }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: '100%' }} />
 
-      {/* COMPACT MAP OVERLAY LEGEND */}
-      <div style={{
-        position: 'absolute',
-        bottom: '16px',
-        left: '16px',
-        zIndex: 1000,
-        background: 'rgba(15, 23, 42, 0.88)',
-        backdropFilter: 'blur(6px)',
-        border: '1px solid rgba(255,255,255,0.15)',
-        borderRadius: '6px',
-        padding: '8px 12px',
-        color: '#f8fafc',
-        fontSize: '0.72rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
-      }}>
-        <div style={{ fontWeight: 800, fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>
-          Legenda Overview ({mapMode === 'status' ? 'Status Blok' : 'Frekuensi Cakupan'})
+      {/* FLOATING MAP ZOOM & FIT ESTATE CONTROLS (Below top zone strips) */}
+      <div
+        style={{
+          position: 'absolute',
+          top: `${topControlsOffset}px`,
+          left: '16px',
+          zIndex: 500,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          transition: 'top 0.2s ease'
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'rgba(255, 255, 255, 0.92)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(226, 232, 240, 0.85)',
+            borderRadius: '6px',
+            boxShadow: '0 2px 8px rgba(15, 23, 42, 0.08)',
+            overflow: 'hidden'
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => mapRef.current?.zoomIn()}
+            style={{
+              width: '32px',
+              height: '32px',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: '1px solid rgba(226, 232, 240, 0.6)',
+              color: '#0f172a',
+              fontWeight: 700,
+              fontSize: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Perbesar Peta"
+            aria-label="Perbesar Peta"
+          >+</button>
+          <button
+            type="button"
+            onClick={() => mapRef.current?.zoomOut()}
+            style={{
+              width: '32px',
+              height: '32px',
+              background: 'transparent',
+              border: 'none',
+              color: '#0f172a',
+              fontWeight: 700,
+              fontSize: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Perkecil Peta"
+            aria-label="Perkecil Peta"
+          >−</button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ width: 12, height: 4, borderRadius: 2, background: '#2563eb', display: 'inline-block' }} />
-          <span>Mobil 1</span>
-          <span style={{ width: 12, height: 4, borderRadius: 2, background: '#d97706', display: 'inline-block', marginLeft: 4 }} />
-          <span>Mobil 2</span>
-          <span style={{ width: 12, height: 4, borderRadius: 2, background: '#16a34a', display: 'inline-block', marginLeft: 4 }} />
-          <span>Motor 1</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
-          {mapMode === 'status' ? (
-            <>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(239, 68, 68, 0.4)', border: '1px solid #dc2626', display: 'inline-block' }} />
-              <span>Blok Rawan</span>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(59, 130, 246, 0.2)', border: '1px solid #60a5fa', display: 'inline-block', marginLeft: 6 }} />
-              <span>Non-Rawan</span>
-            </>
-          ) : (
-            <>
-              <span style={{ width: 10, height: 10, background: '#f1f5f9', border: '1px solid #cbd5e1', display: 'inline-block' }} />
-              <span>0×</span>
-              <span style={{ width: 10, height: 10, background: '#bbf7d0', border: '1px solid #4ade80', display: 'inline-block', marginLeft: 4 }} />
-              <span>1×</span>
-              <span style={{ width: 10, height: 10, background: '#4ade80', border: '1px solid #16a34a', display: 'inline-block', marginLeft: 4 }} />
-              <span>2×</span>
-              <span style={{ width: 10, height: 10, background: '#15803d', border: '1px solid #14532d', display: 'inline-block', marginLeft: 4 }} />
-              <span>&gt;2×</span>
-            </>
-          )}
-          <span style={{ marginLeft: 6 }}>⚡ &gt;50km/h</span>
-          <span style={{ marginLeft: 6 }}>🛑 &gt;30m</span>
-          <span style={{ marginLeft: 6 }}>⚠️ Out-Route</span>
-          <span style={{ marginLeft: 6 }}>🚨 Pencurian</span>
-        </div>
+
+        <button
+          type="button"
+          onClick={fitEstateBounds}
+          style={{
+            background: 'rgba(255, 255, 255, 0.92)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(226, 232, 240, 0.85)',
+            borderRadius: '6px',
+            height: '32px',
+            padding: '0 10px',
+            boxShadow: '0 2px 8px rgba(15, 23, 42, 0.08)',
+            color: '#0f172a',
+            fontWeight: 600,
+            fontSize: '11px',
+            fontFamily: "'Poppins', sans-serif",
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
+          }}
+          title="Fokus Seluruh Kebun (Fit Estate)"
+          aria-label="Fokus Seluruh Kebun (Fit Estate)"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          <span>Fit Estate</span>
+        </button>
       </div>
     </div>
   )
