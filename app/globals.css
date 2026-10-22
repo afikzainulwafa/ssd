@@ -47,3 +47,25 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* Container Panel Top Accent Line (Option 1 - Signature 3-Color Gradient: SRMD / Profiling standard) */
+.container-panel-line {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.container-panel-line::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1565d8, #00897b, #43a047);
+  z-index: 5;
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  pointer-events: none;
+}
+

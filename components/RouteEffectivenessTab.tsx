@@ -450,7 +450,7 @@ export default function RouteEffectivenessTab({ globalFilters }: RouteEffectiven
       : `Grafik Tren 6 Bulan Kepatuhan Rute - ${isJarak ? 'Jarak Patroli' : 'Kesesuaian Rute'}`
 
     return (
-      <div style={{
+      <div className="container-panel-line" style={{
         background: '#ffffff',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
@@ -916,7 +916,7 @@ ${isJarak ? `Baseline: ${fmtKm(a.baselineKm)}` : `Luar Rute: ${fmtKm(a.outRouteK
   // ── Render: Summary Breakdown Table (Aligned with Laporan & Coverage) ────────
   const renderSummaryTable = () => {
     return (
-      <div style={{
+      <div className="container-panel-line" style={{
         background: '#ffffff',
         borderRadius: '8px',
         border: '1px solid #e2e8f0',
@@ -1261,7 +1261,7 @@ ${isJarak ? `Baseline: ${fmtKm(a.baselineKm)}` : `Luar Rute: ${fmtKm(a.outRouteK
   // ── Render: Daily Detail Table (Harmonized with Laporan section) ─────────────
   const renderDailyDetailTable = () => {
     return (
-      <div style={{
+      <div className="container-panel-line" style={{
         background: '#ffffff',
         borderRadius: '8px',
         border: '1px solid #e2e8f0',

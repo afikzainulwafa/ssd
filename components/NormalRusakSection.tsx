@@ -287,7 +287,7 @@ export default function NormalRusakSection({
   }, [activeSegment, unitRusakIncidents, gpsRusakIncidents])
 
   return (
-    <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+    <div className="container-panel-line" style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
       {/* SECTION HEADER & ROLE SWITCHER TOOLBAR */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.85rem' }}>
         <div>
@@ -649,7 +649,7 @@ export default function NormalRusakSection({
           </div>
 
           {/* Unified 7-Column Table */}
-          <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff' }}>
+          <div className="container-panel-line" style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff' }}>
             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
               <thead style={{ background: '#e2e8f0' }}>
                 <tr style={{ textTransform: 'uppercase', fontSize: '0.7rem', color: '#475569', fontWeight: 700, letterSpacing: '0.02em' }}>

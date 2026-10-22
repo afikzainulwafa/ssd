@@ -902,7 +902,7 @@ function BelumDikirimView({
   const totalPages = Math.ceil(filteredDailyTableRows.length / pageSize) || 1
 
   return (
-    <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+    <div className="container-panel-line" style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <div>
           <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#991b1b' }}>
@@ -1764,8 +1764,30 @@ export default function ReportsPage() {
         .progress-fill.in-route-bar { background: #2563eb; border-radius: 3px 0 0 3px; }
         .progress-fill.out-route-bar { background: #e2e8f0; border-radius: 0 3px 3px 0; }
 
+        /* --- Unified Container Panel Top Accent Line (SRMD / Profiling Standard) --- */
+        .container-panel-line {
+          position: relative !important;
+          overflow: hidden !important;
+        }
+
+        .container-panel-line::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, #1565d8, #00897b, #43a047);
+          z-index: 5;
+          border-radius: inherit;
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+          pointer-events: none;
+        }
+
         /* --- Unified Chart Panel Container --- */
         .chart-card-container {
+          position: relative;
           background: #ffffff;
           border-radius: 10px;
           border: 1px solid #e2e8f0;
@@ -1774,6 +1796,19 @@ export default function ReportsPage() {
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
           font-family: 'Poppins', sans-serif;
           box-sizing: border-box;
+          overflow: hidden;
+        }
+
+        .chart-card-container::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, #1565d8, #00897b, #43a047);
+          z-index: 5;
+          pointer-events: none;
         }
 
         .chart-header-block {
@@ -2308,7 +2343,7 @@ export default function ReportsPage() {
                 <div>
 
                   {/* Summary Table directly below Perbandingan chart */}
-                  <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <div className="container-panel-line" style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <div style={{ padding: '0.75rem 1rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
                         Tabel Ringkasan Perbandingan ({effectiveDateRange.label})
@@ -2419,7 +2454,7 @@ export default function ReportsPage() {
                 <div>
 
                   {/* Summary Table directly below 6-Month Chart */}
-                  <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <div className="container-panel-line" style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <div style={{ padding: '0.75rem 1rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
                         Tabel Breakdown Tren 6 Bulan ({trendBreakdownData.breakdownType === 'Vehicle' ? 'Per Unit Kendaraan' : `Per ${trendBreakdownData.breakdownType}`})
@@ -2540,7 +2575,7 @@ export default function ReportsPage() {
               )}
 
               {/* IN-PAGE DAILY REPORT CONTAINER (Always Visible by Default) */}
-              <div style={{ marginTop: '1.5rem', background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: drilldownState ? '1.5px solid #3b82f6' : '1px solid #e2e8f0' }}>
+              <div className="container-panel-line" style={{ marginTop: '1.5rem', background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: drilldownState ? '1.5px solid #3b82f6' : '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <div>
                     <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e3a8a' }}>

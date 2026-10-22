@@ -597,7 +597,7 @@ export default function CoverageAreaTab({
       </div>
 
       {/* 2. MIDDLE SECTION: ANALYTICAL VIEW (PERBANDINGAN | TREN 6 BULAN) */}
-      <div style={{
+      <div className="container-panel-line" style={{
         background: '#ffffff',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
@@ -1139,7 +1139,7 @@ export default function CoverageAreaTab({
       </div>
 
       {/* SUMMARY TABLE BENEATH CHART - MATCHING LAPORAN SECTION STYLING */}
-        <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        <div className="container-panel-line" style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
           <div style={{ padding: '0.75rem 1rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
               {activeViewMode === 'Perbandingan'
@@ -1509,7 +1509,7 @@ export default function CoverageAreaTab({
         if (!isMapVisible) return null
 
         return (
-          <div ref={detailMapRef} id="detail-coverage-map" style={{
+          <div ref={detailMapRef} id="detail-coverage-map" className="container-panel-line" style={{
             background: '#ffffff',
             borderRadius: '10px',
             border: '1px solid #e2e8f0',
