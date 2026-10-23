@@ -1131,33 +1131,89 @@ export default function UtilizationPage() {
           )}
 
           {activeCard === 'mileage' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Total</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', padding: '2px 0 4px 0' }}>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #2563eb',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Total
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {fmtKm(operationalData.mileage.totalMileageKm)}
                   </div>
+                  <div style={{ fontSize: '0.68rem', color: 'transparent', userSelect: 'none' }}>-</div>
                 </div>
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Rata-rata</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #0d9488',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Rata-rata
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {fmtKm(operationalData.mileage.avgMileageKm)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>per unit-hari</div>
                 </div>
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Terendah</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #f59e0b',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Terendah
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {fmtKm(operationalData.mileage.lowestMileage.val)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.mileage.lowestMileage.date)}
                   </div>
                 </div>
-                <div style={{ paddingLeft: '12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Tertinggi</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #16a34a',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Tertinggi
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {fmtKm(operationalData.mileage.highestMileage.val)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
@@ -1199,33 +1255,89 @@ export default function UtilizationPage() {
           )}
 
           {activeCard === 'moving' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Total</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', padding: '2px 0 4px 0' }}>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #2563eb',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Total
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {formatDurationHmMini(operationalData.moving.totalMovingMins)}
                   </div>
+                  <div style={{ fontSize: '0.68rem', color: 'transparent', userSelect: 'none' }}>-</div>
                 </div>
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Rata-rata</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #0d9488',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Rata-rata
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {formatDurationHmMini(operationalData.moving.avgMovingMins)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>per unit-hari</div>
                 </div>
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Terendah</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #f59e0b',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Terendah
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {formatDurationHmMini(operationalData.moving.lowestMoving.mins)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.moving.lowestMoving.date)}
                   </div>
                 </div>
-                <div style={{ paddingLeft: '12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Tertinggi</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #16a34a',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Tertinggi
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {formatDurationHmMini(operationalData.moving.highestMoving.mins)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
@@ -1267,33 +1379,89 @@ export default function UtilizationPage() {
           )}
 
           {activeCard === 'stopping' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Total</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', padding: '2px 0 4px 0' }}>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #2563eb',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Total
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {formatDurationHmMini(operationalData.stopping.totalStoppingMins)}
                   </div>
+                  <div style={{ fontSize: '0.68rem', color: 'transparent', userSelect: 'none' }}>-</div>
                 </div>
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Rata-rata</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #0d9488',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Rata-rata
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {formatDurationHmMini(operationalData.stopping.avgStoppingMins)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>per unit-hari</div>
                 </div>
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Terendah</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #f59e0b',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Terendah
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {formatDurationHmMini(operationalData.stopping.lowestStopping.mins)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.stopping.lowestStopping.date)}
                   </div>
                 </div>
-                <div style={{ paddingLeft: '12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Tertinggi</div>
-                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #16a34a',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Tertinggi
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
                     {formatDurationHmMini(operationalData.stopping.highestStopping.mins)}
                   </div>
                   <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
