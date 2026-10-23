@@ -12,7 +12,7 @@ import {
   Search,
   ChevronRight,
   ChevronLeft,
-  ChevronDown
+  Users
 } from 'lucide-react'
 import {
   getFilteredVehicles,
@@ -32,11 +32,6 @@ function fmtKm(v: number): string {
 function fmtKmRaw(v: number): string {
   if (v === undefined || v === null || isNaN(v)) return '0,0'
   return v.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-}
-
-function fmtInt(v: number): string {
-  if (v === undefined || v === null || isNaN(v)) return '0'
-  return v.toLocaleString('id-ID')
 }
 
 function formatDurationHmMini(totalMins: number): string {
@@ -68,7 +63,7 @@ export default function UtilizationPage() {
   // Global hierarchy filter state
   const [filterState, setFilterState] = useState<HierarchyFilterState>({
     psm: 'PSM 1',
-    region: 'RIAS',
+    region: 'SUMUT',
     estate: 'KULE',
     year: '2026',
     month: 'May',
@@ -133,7 +128,6 @@ export default function UtilizationPage() {
   const filteredRuns = useMemo(() => getFilteredPatrolRuns(globalFilters), [globalFilters])
   const filteredReports = useMemo(() => getFilteredPatrolReports(globalFilters), [globalFilters])
   const filteredExceptions = useMemo(() => getFilteredExceptions(globalFilters), [globalFilters])
-  const filteredEstates = useMemo(() => getFilteredEstates(globalFilters), [globalFilters])
 
   // Vehicle options for the filter bar
   const vehicleOptions = useMemo(() => {
@@ -153,7 +147,7 @@ export default function UtilizationPage() {
     return map
   }, [filteredVehicles])
 
-  // Subtitle string: e.g. "PHLE · 01–31 Mei 2026"
+  // Subtitle string: e.g. "KULE · 01–31 Mei 2026"
   const scopeSubtitle = useMemo(() => {
     const est = filterState.estate === 'ALL'
       ? (filterState.region === 'ALL' ? 'Semua Wilayah' : filterState.region)
@@ -165,207 +159,215 @@ export default function UtilizationPage() {
   }, [filterState.estate, filterState.region, periodPreset, customStart, customEnd])
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 1. VEHICLE BREAKDOWN DATA CALCULATIONS
+  // 1. VEHICLE BREAKDOWN DATA (GRAIN: 1 KENDARAAN × 1 TANGGAL)
   // ───────────────────────────────────────────────────────────────────────────
   const vehicleBreakdownData = useMemo(() => {
-    // Collect records from reports and exceptions
-    const breakdownRows: Array<{
+    // Map with key: `${date}__${vehicleId}` to guarantee each vehicle is counted at most once per date
+    const dailyMap = new Map<string, {
       id: string
       date: string
       estateId: string
       vehicleId: string
       nopol: string
-      shift: string
-      status: 'Breakdown' | 'Aktif'
-      hkBreakdown: number | null
+      statusHarian: 'Rusak' | 'Aktif'
+      hkRusak: number | null
       keterangan: string
-    }> = []
+    }>()
 
-    const breakdownVehiclesSet = new Set<string>()
-
-    // Check filtered reports for Unit Rusak and Normal
+    // 1. Reports: check for Unit Rusak and Normal
     filteredReports.forEach((rep, idx) => {
+      const key = `${rep.date}__${rep.vehicleId}`
       const veh = vehicleMap.get(rep.vehicleId)
       const nopol = veh?.nopol || rep.vehicleId
       const isBreakdown = rep.reportType === 'Unit Rusak'
 
-      if (isBreakdown) {
-        breakdownVehiclesSet.add(rep.vehicleId)
+      const existing = dailyMap.get(key)
+      if (existing) {
+        // If conflict occurs, priority given to Rusak if any record indicates damage
+        if (isBreakdown) {
+          existing.statusHarian = 'Rusak'
+          existing.hkRusak = 1
+          existing.keterangan = rep.picComment || 'Kerusakan pada unit kendaraan'
+        }
+      } else {
+        dailyMap.set(key, {
+          id: `rep-veh-${rep.id || idx}`,
+          date: rep.date,
+          estateId: rep.estateId,
+          vehicleId: rep.vehicleId,
+          nopol,
+          statusHarian: isBreakdown ? 'Rusak' : 'Aktif',
+          hkRusak: isBreakdown ? 1 : null,
+          keterangan: rep.picComment || (isBreakdown ? 'Kerusakan pada unit kendaraan' : 'Kondisi normal')
+        })
       }
-
-      breakdownRows.push({
-        id: `rep-veh-${rep.id || idx}`,
-        date: rep.date,
-        estateId: rep.estateId,
-        vehicleId: rep.vehicleId,
-        nopol,
-        shift: 'Shift 1',
-        status: isBreakdown ? 'Breakdown' : 'Aktif',
-        hkBreakdown: isBreakdown ? 1 : null,
-        keterangan: rep.picComment || (isBreakdown ? 'Kerusakan pada sistem transmisi / mesin' : 'Kondisi normal')
-      })
     })
 
-    // Add any vehicle breakdown exception records if not already present
+    // 2. Exceptions: check for Vehicle Breakdown
     filteredExceptions
       .filter(e => e.type === 'Vehicle Breakdown')
       .forEach(exp => {
-        breakdownVehiclesSet.add(exp.vehicleId)
+        const key = `${exp.date}__${exp.vehicleId}`
         const veh = vehicleMap.get(exp.vehicleId)
         const nopol = veh?.nopol || exp.vehicleId
-        breakdownRows.push({
+
+        dailyMap.set(key, {
           id: `exp-${exp.id}`,
           date: exp.date,
           estateId: exp.estateId,
           vehicleId: exp.vehicleId,
           nopol,
-          shift: exp.shift || 'Shift 1',
-          status: 'Breakdown',
-          hkBreakdown: 1,
+          statusHarian: 'Rusak',
+          hkRusak: 1,
           keterangan: exp.detail || exp.reasonCategory || 'Mesin tidak dapat dinyalakan'
         })
       })
 
-    // If no records found, provide realistic mock data within current filtered estate
-    if (breakdownRows.length === 0) {
-      const defaultEst = filterState.estate !== 'ALL' ? filterState.estate : 'PHLE'
+    // 3. Fallback deterministic realistic records if empty (matching mockup)
+    if (dailyMap.size === 0) {
+      const defaultEst = filterState.estate !== 'ALL' ? filterState.estate : 'KULE'
       const sampleUnits = [
-        { date: '2026-05-03', nopol: 'BM 8421 QA', id: 'V-Estate B-01', shift: 'Shift 1', status: 'Breakdown' as const, hk: 1, ket: 'Mesin tidak dapat dinyalakan' },
-        { date: '2026-05-07', nopol: 'BK 6172 AB', id: 'V-Estate B-02', shift: 'Shift 2', status: 'Breakdown' as const, hk: 1, ket: 'Ban dan velg rusak' },
-        { date: '2026-05-12', nopol: 'BM 8421 QA', id: 'V-Estate B-01', shift: 'Shift 1', status: 'Breakdown' as const, hk: 1, ket: 'Gangguan sistem kelistrikan' },
-        { date: '2026-05-18', nopol: 'BK 6172 AB', id: 'V-Estate B-02', shift: 'Shift 3', status: 'Breakdown' as const, hk: 1, ket: 'Kerusakan rantai' },
-        { date: '2026-05-21', nopol: 'BM 9923 CD', id: 'V-Estate B-03', shift: 'Shift 2', status: 'Aktif' as const, hk: null, ket: 'Kondisi normal' }
+        { date: '2026-05-21', nopol: 'BM 9923 CD', id: 'V-Estate B-03', status: 'Aktif' as const, hk: null, ket: 'Kondisi normal' },
+        { date: '2026-05-18', nopol: 'BK 6172 AB', id: 'V-Estate B-02', status: 'Rusak' as const, hk: 1, ket: 'Kerusakan rantai' },
+        { date: '2026-05-12', nopol: 'BM 8421 QA', id: 'V-Estate B-01', status: 'Rusak' as const, hk: 1, ket: 'Gangguan sistem kelistrikan' },
+        { date: '2026-05-07', nopol: 'BK 6172 AB', id: 'V-Estate B-02', status: 'Rusak' as const, hk: 1, ket: 'Ban dan velg rusak' },
+        { date: '2026-05-03', nopol: 'BM 8421 QA', id: 'V-Estate B-01', status: 'Rusak' as const, hk: 1, ket: 'Mesin tidak dapat dinyalakan' }
       ]
       sampleUnits.forEach((s, i) => {
-        if (s.status === 'Breakdown') breakdownVehiclesSet.add(s.id)
-        breakdownRows.push({
+        const key = `${s.date}__${s.id}`
+        dailyMap.set(key, {
           id: `sample-breakdown-${i}`,
           date: s.date,
           estateId: defaultEst,
           vehicleId: s.id,
           nopol: s.nopol,
-          shift: s.shift,
-          status: s.status,
-          hkBreakdown: s.hk,
+          statusHarian: s.status,
+          hkRusak: s.hk,
           keterangan: s.ket
         })
       })
     }
 
+    const rows = Array.from(dailyMap.values())
     // Sort descending by date
-    breakdownRows.sort((a, b) => b.date.localeCompare(a.date))
+    rows.sort((a, b) => b.date.localeCompare(a.date))
 
-    const totalIncidents = breakdownRows.filter(r => r.status === 'Breakdown').length
-    const affectedUnitsCount = breakdownVehiclesSet.size || (totalIncidents > 0 ? Math.min(totalIncidents, 2) : 0)
-    const totalHk = breakdownRows.reduce((sum, r) => sum + (r.hkBreakdown || 0), 0)
+    // HK rusak = jumlah pasangan kendaraan–tanggal yang berstatus rusak
+    const rusakRows = rows.filter(r => r.statusHarian === 'Rusak')
+    const totalHk = rusakRows.length
+
+    // Unit terdampak = jumlah kendaraan unik yang mengalami kerusakan
+    const affectedUnitsSet = new Set(rusakRows.map(r => r.vehicleId))
+    const affectedUnitsCount = affectedUnitsSet.size
 
     return {
-      totalIncidents,
+      totalHk,
       affectedUnitsCount,
-      totalHk: totalHk || totalIncidents * 3, // Realistic multi-day HK if single records
-      rows: breakdownRows
+      rows
     }
   }, [filteredReports, filteredExceptions, vehicleMap, filterState.estate])
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 2. GPS / WIFI BREAKDOWN DATA CALCULATIONS
+  // 2. GPS / WIFI BREAKDOWN DATA (GRAIN: 1 KENDARAAN × 1 TANGGAL)
   // ───────────────────────────────────────────────────────────────────────────
   const gpsBreakdownData = useMemo(() => {
-    const gpsRows: Array<{
+    const dailyMap = new Map<string, {
       id: string
       date: string
       estateId: string
       vehicleId: string
       nopol: string
-      shift: string
+      statusHarian: 'Rusak' | 'Aktif'
       penyebab: 'GPS' | 'Access Point / WiFi'
+      hkRusak: number | null
       keterangan: string
-    }> = []
+    }>()
 
-    const affectedVehicles = new Set<string>()
-
-    // Check filtered reports for GPS Rusak
     filteredReports
       .filter(r => r.reportType === 'GPS Rusak')
       .forEach((rep, idx) => {
-        affectedVehicles.add(rep.vehicleId)
+        const key = `${rep.date}__${rep.vehicleId}`
         const veh = vehicleMap.get(rep.vehicleId)
         const nopol = veh?.nopol || rep.vehicleId
-        gpsRows.push({
+        dailyMap.set(key, {
           id: `rep-gps-${rep.id || idx}`,
           date: rep.date,
           estateId: rep.estateId,
           vehicleId: rep.vehicleId,
           nopol,
-          shift: 'Shift 1',
+          statusHarian: 'Rusak',
           penyebab: 'GPS',
+          hkRusak: 1,
           keterangan: rep.gpsNote || rep.picComment || 'Tidak mengirim posisi'
         })
       })
 
-    // Check filtered exceptions for GPS Breakdown
     filteredExceptions
       .filter(e => e.type === 'GPS Breakdown')
       .forEach(exp => {
-        affectedVehicles.add(exp.vehicleId)
+        const key = `${exp.date}__${exp.vehicleId}`
         const veh = vehicleMap.get(exp.vehicleId)
         const nopol = veh?.nopol || exp.vehicleId
         const isWifi = exp.detail?.toLowerCase().includes('wifi') || exp.reasonCategory?.toLowerCase().includes('wifi')
-        gpsRows.push({
+        dailyMap.set(key, {
           id: `exp-gps-${exp.id}`,
           date: exp.date,
           estateId: exp.estateId,
           vehicleId: exp.vehicleId,
           nopol,
-          shift: exp.shift || 'Shift 2',
+          statusHarian: 'Rusak',
           penyebab: isWifi ? 'Access Point / WiFi' : 'GPS',
+          hkRusak: 1,
           keterangan: exp.detail || 'Koneksi access point terputus'
         })
       })
 
-    // Default realistic records if empty
-    if (gpsRows.length === 0) {
-      const defaultEst = filterState.estate !== 'ALL' ? filterState.estate : 'PHLE'
+    if (dailyMap.size === 0) {
+      const defaultEst = filterState.estate !== 'ALL' ? filterState.estate : 'KULE'
       const sampleGps = [
-        { date: '2026-05-04', nopol: 'BM 8421 QA', id: 'V-Estate B-01', shift: 'Shift 1', penyebab: 'GPS' as const, ket: 'Tidak mengirim posisi' },
-        { date: '2026-05-10', nopol: 'BK 6172 AB', id: 'V-Estate B-02', shift: 'Shift 2', penyebab: 'Access Point / WiFi' as const, ket: 'Koneksi access point terputus' },
-        { date: '2026-05-17', nopol: 'BM 8421 QA', id: 'V-Estate B-01', shift: 'Shift 3', penyebab: 'GPS' as const, ket: 'Perangkat tidak menyala' }
+        { date: '2026-05-17', nopol: 'BM 8421 QA', id: 'V-Estate B-01', penyebab: 'GPS' as const, ket: 'Perangkat tidak menyala' },
+        { date: '2026-05-10', nopol: 'BK 6172 AB', id: 'V-Estate B-02', penyebab: 'Access Point / WiFi' as const, ket: 'Koneksi access point terputus' },
+        { date: '2026-05-04', nopol: 'BM 8421 QA', id: 'V-Estate B-01', penyebab: 'GPS' as const, ket: 'Tidak mengirim posisi' }
       ]
       sampleGps.forEach((s, i) => {
-        affectedVehicles.add(s.id)
-        gpsRows.push({
+        const key = `${s.date}__${s.id}`
+        dailyMap.set(key, {
           id: `sample-gps-${i}`,
           date: s.date,
           estateId: defaultEst,
           vehicleId: s.id,
           nopol: s.nopol,
-          shift: s.shift,
+          statusHarian: 'Rusak',
           penyebab: s.penyebab,
+          hkRusak: 1,
           keterangan: s.ket
         })
       })
     }
 
-    gpsRows.sort((a, b) => b.date.localeCompare(a.date))
+    const rows = Array.from(dailyMap.values())
+    rows.sort((a, b) => b.date.localeCompare(a.date))
 
-    const gpsCount = gpsRows.filter(r => r.penyebab === 'GPS').length
-    const wifiCount = gpsRows.filter(r => r.penyebab === 'Access Point / WiFi').length
-    const totalCount = gpsRows.length
+    const totalHk = rows.length
+    const affectedUnitsSet = new Set(rows.map(r => r.vehicleId))
+    const affectedUnitsCount = affectedUnitsSet.size
+
+    const gpsCount = rows.filter(r => r.penyebab === 'GPS').length
+    const wifiCount = rows.filter(r => r.penyebab === 'Access Point / WiFi').length
 
     return {
-      totalCount,
-      affectedUnitsCount: affectedVehicles.size || (totalCount > 0 ? 2 : 0),
+      totalHk,
+      affectedUnitsCount,
       gpsCount,
       wifiCount,
-      rows: gpsRows
+      rows
     }
   }, [filteredReports, filteredExceptions, vehicleMap, filterState.estate])
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 3, 4, 5. MILEAGE, MOVING TIME, STOPPING TIME DATA CALCULATIONS
+  // 3, 4, 5. MILEAGE, MOVING TIME, STOPPING TIME DATA
   // ───────────────────────────────────────────────────────────────────────────
   const operationalData = useMemo(() => {
-    // Map to group runs by date + vehicleId
     const dayVehicleMap = new Map<string, {
       date: string
       estateId: string
@@ -422,16 +424,14 @@ export default function UtilizationPage() {
         item.shift3MovingMins += mov
         item.shift3StoppingMins += stp
       } else {
-        // Default allocate to shift 1 if not specified
         item.shift1Km += km
         item.shift1MovingMins += mov
         item.shift1StoppingMins += stp
       }
     })
 
-    // If dayVehicleMap is sparse, generate realistic deterministic days matching the estate
     if (dayVehicleMap.size === 0) {
-      const defaultEst = filterState.estate !== 'ALL' ? filterState.estate : 'PHLE'
+      const defaultEst = filterState.estate !== 'ALL' ? filterState.estate : 'KULE'
       const sampleVehicles = [
         { id: 'V-Estate B-01', nopol: 'BM 8421 QA' },
         { id: 'V-Estate B-02', nopol: 'BK 6172 AB' }
@@ -442,17 +442,17 @@ export default function UtilizationPage() {
         sampleVehicles.forEach((veh, vIdx) => {
           const key = `${dateStr}__${veh.id}`
           const baseSeed = day * 13 + vIdx * 37
-          const s1Km = 15 + (baseSeed % 8)
-          const s2Km = 12 + (baseSeed % 6)
-          const s3Km = 8 + (baseSeed % 4)
+          const s1Km = 14 + (baseSeed % 7)
+          const s2Km = 11 + (baseSeed % 5)
+          const s3Km = 7 + (baseSeed % 4)
 
-          const s1Mov = 50 + (baseSeed % 25)
-          const s2Mov = 45 + (baseSeed % 20)
-          const s3Mov = 25 + (baseSeed % 15)
+          const s1Mov = 45 + (baseSeed % 20)
+          const s2Mov = 40 + (baseSeed % 18)
+          const s3Mov = 22 + (baseSeed % 12)
 
-          const s1Stp = 110 + (baseSeed % 30)
-          const s2Stp = 115 + (baseSeed % 25)
-          const s3Stp = 85 + (baseSeed % 20)
+          const s1Stp = 105 + (baseSeed % 25)
+          const s2Stp = 110 + (baseSeed % 20)
+          const s3Stp = 80 + (baseSeed % 15)
 
           dayVehicleMap.set(key, {
             date: dateStr,
@@ -473,7 +473,6 @@ export default function UtilizationPage() {
       }
     }
 
-    // Convert map to daily rows
     const dailyRows = Array.from(dayVehicleMap.values()).map(r => {
       const totalKm = r.shift1Km + r.shift2Km + r.shift3Km
       const totalMovingMins = r.shift1MovingMins + r.shift2MovingMins + r.shift3MovingMins
@@ -487,13 +486,11 @@ export default function UtilizationPage() {
       }
     })
 
-    // Sort descending by date, then vehicle
     dailyRows.sort((a, b) => b.date.localeCompare(a.date) || a.nopol.localeCompare(b.nopol))
 
-    // Total counts
     const totalDaysCount = dailyRows.length || 1
 
-    // ── MILEAGE STATS ────────────────────────────────────────────────────────
+    // Mileage
     const totalMileageKm = dailyRows.reduce((sum, r) => sum + r.totalKm, 0)
     const avgMileageKm = Math.round((totalMileageKm / totalDaysCount) * 10) / 10
 
@@ -506,7 +503,6 @@ export default function UtilizationPage() {
     })
     if (lowestMileage.val === 99999) lowestMileage.val = 0
 
-    // Shifts for Mileage
     const shift1TotalKm = dailyRows.reduce((sum, r) => sum + r.shift1Km, 0)
     const shift2TotalKm = dailyRows.reduce((sum, r) => sum + r.shift2Km, 0)
     const shift3TotalKm = dailyRows.reduce((sum, r) => sum + r.shift3Km, 0)
@@ -535,12 +531,11 @@ export default function UtilizationPage() {
       }
     ]
 
-    // ── MOVING & STOPPING TIME STATS ──────────────────────────────────────────
+    // Moving and Stopping (Denominators exactly equal, total 100%)
     const totalMovingMins = dailyRows.reduce((sum, r) => sum + r.totalMovingMins, 0)
     const totalStoppingMins = dailyRows.reduce((sum, r) => sum + r.totalStoppingMins, 0)
     const totalOperationalMins = totalMovingMins + totalStoppingMins
 
-    // Guaranteed 100% Moving + Stopping ratio
     let movingPct = 0
     let stoppingPct = 0
     if (totalOperationalMins > 0) {
@@ -565,7 +560,6 @@ export default function UtilizationPage() {
     if (lowestMoving.mins === 99999) lowestMoving.mins = 0
     if (lowestStopping.mins === 99999) lowestStopping.mins = 0
 
-    // Shifts for Moving Time
     const s1MovTotal = dailyRows.reduce((sum, r) => sum + r.shift1MovingMins, 0)
     const s2MovTotal = dailyRows.reduce((sum, r) => sum + r.shift2MovingMins, 0)
     const s3MovTotal = dailyRows.reduce((sum, r) => sum + r.shift3MovingMins, 0)
@@ -594,7 +588,6 @@ export default function UtilizationPage() {
       }
     ]
 
-    // Shifts for Stopping Time
     const s1StpTotal = dailyRows.reduce((sum, r) => sum + r.shift1StoppingMins, 0)
     const s2StpTotal = dailyRows.reduce((sum, r) => sum + r.shift2StoppingMins, 0)
     const s3StpTotal = dailyRows.reduce((sum, r) => sum + r.shift3StoppingMins, 0)
@@ -665,6 +658,7 @@ export default function UtilizationPage() {
           r.vehicleId.toLowerCase().includes(q) ||
           r.estateId.toLowerCase().includes(q) ||
           r.keterangan.toLowerCase().includes(q) ||
+          r.statusHarian.toLowerCase().includes(q) ||
           r.date.includes(q)
         )
       })
@@ -692,7 +686,6 @@ export default function UtilizationPage() {
       return { total, rows: paginated }
     }
 
-    // Mileage, Moving, Stopping share the same daily operational records
     const filtered = operationalData.dailyRows.filter(r => {
       if (!q) return true
       return (
@@ -744,7 +737,7 @@ export default function UtilizationPage() {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontFamily: "'Poppins', sans-serif" }}>
         {/* ================================================================== */}
-        {/* LIMA KPI DALAM SATU BARIS DESKTOP DENGAN TINGGI SERAGAM            */}
+        {/* 1. LIMA KPI CARD (1 BARIS, RATA TENGAH, TINGGI ~155PX, RAPI)        */}
         {/* ================================================================== */}
         <div
           style={{
@@ -753,201 +746,206 @@ export default function UtilizationPage() {
             gap: '12px'
           }}
         >
-          {/* 1. VEHICLE BREAKDOWN */}
+          {/* CARD 1: VEHICLE BREAKDOWN */}
           <div
             onClick={() => handleCardChange('vehicle')}
             style={{
               background: '#ffffff',
               border: activeCard === 'vehicle' ? '2px solid #2563eb' : '1px solid #e2e8f0',
               borderRadius: '10px',
-              padding: '12px 14px',
+              padding: '14px 16px',
               cursor: 'pointer',
               boxShadow: activeCard === 'vehicle' ? '0 4px 14px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0,0,0,0.03)',
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
-              height: '140px',
+              height: '155px',
               boxSizing: 'border-box',
               transition: 'all 0.15s ease'
             }}
           >
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3.5px', background: '#f97316' }} />
+            {/* Top row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Car size={16} color="#ea580c" />
                 </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>Vehicle Breakdown</span>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a' }}>Vehicle Breakdown</span>
               </div>
               <ChevronRight size={15} color={activeCard === 'vehicle' ? '#2563eb' : '#cbd5e1'} />
             </div>
-            <div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>
-                {vehicleBreakdownData.totalIncidents}
+            {/* Center Area: Number & Caption Rata-Tengah */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.85rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+                {vehicleBreakdownData.totalHk} HK
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
-                kejadian · {vehicleBreakdownData.totalHk} HK
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '6px' }}>
+                {vehicleBreakdownData.affectedUnitsCount} unit terdampak
               </div>
             </div>
           </div>
 
-          {/* 2. GPS / WIFI BREAKDOWN */}
+          {/* CARD 2: GPS/WIFI BREAKDOWN */}
           <div
             onClick={() => handleCardChange('gps')}
             style={{
               background: '#ffffff',
               border: activeCard === 'gps' ? '2px solid #2563eb' : '1px solid #e2e8f0',
               borderRadius: '10px',
-              padding: '12px 14px',
+              padding: '14px 16px',
               cursor: 'pointer',
               boxShadow: activeCard === 'gps' ? '0 4px 14px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0,0,0,0.03)',
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
-              height: '140px',
+              height: '155px',
               boxSizing: 'border-box',
               transition: 'all 0.15s ease'
             }}
           >
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3.5px', background: '#f59e0b' }} />
+            {/* Top row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Wifi size={16} color="#d97706" />
                 </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>GPS/WiFi Breakdown</span>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a' }}>GPS/WiFi Breakdown</span>
               </div>
               <ChevronRight size={15} color={activeCard === 'gps' ? '#2563eb' : '#cbd5e1'} />
             </div>
-            <div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>
-                {gpsBreakdownData.totalCount}
+            {/* Center Area: Number & Caption Rata-Tengah */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.85rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+                {gpsBreakdownData.totalHk} HK
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
-                kejadian
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '6px' }}>
+                {gpsBreakdownData.affectedUnitsCount} unit terdampak
               </div>
             </div>
           </div>
 
-          {/* 3. MILEAGE */}
+          {/* CARD 3: MILEAGE */}
           <div
             onClick={() => handleCardChange('mileage')}
             style={{
               background: '#ffffff',
               border: activeCard === 'mileage' ? '2px solid #2563eb' : '1px solid #e2e8f0',
               borderRadius: '10px',
-              padding: '12px 14px',
+              padding: '14px 16px',
               cursor: 'pointer',
               boxShadow: activeCard === 'mileage' ? '0 4px 14px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0,0,0,0.03)',
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
-              height: '140px',
+              height: '155px',
               boxSizing: 'border-box',
               transition: 'all 0.15s ease'
             }}
           >
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3.5px', background: '#2563eb' }} />
+            {/* Top row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Navigation size={16} color="#2563eb" />
                 </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>Mileage</span>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a' }}>Mileage</span>
               </div>
               <ChevronRight size={15} color={activeCard === 'mileage' ? '#2563eb' : '#cbd5e1'} />
             </div>
-            <div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>
-                {fmtKmRaw(operationalData.mileage.totalMileageKm)} km
+            {/* Center Area: Number & Caption Rata-Tengah */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.85rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+                {fmtKm(operationalData.mileage.totalMileageKm)}
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '6px' }}>
                 Total jarak tempuh
               </div>
             </div>
           </div>
 
-          {/* 4. MOVING TIME */}
+          {/* CARD 4: MOVING TIME */}
           <div
             onClick={() => handleCardChange('moving')}
             style={{
               background: '#ffffff',
               border: activeCard === 'moving' ? '2px solid #2563eb' : '1px solid #e2e8f0',
               borderRadius: '10px',
-              padding: '12px 14px',
+              padding: '14px 16px',
               cursor: 'pointer',
               boxShadow: activeCard === 'moving' ? '0 4px 14px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0,0,0,0.03)',
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
-              height: '140px',
+              height: '155px',
               boxSizing: 'border-box',
               transition: 'all 0.15s ease'
             }}
           >
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3.5px', background: '#16a34a' }} />
+            {/* Top row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Clock size={16} color="#16a34a" />
                 </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>Moving Time</span>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a' }}>Moving Time</span>
               </div>
               <ChevronRight size={15} color={activeCard === 'moving' ? '#2563eb' : '#cbd5e1'} />
             </div>
-            <div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>
+            {/* Center Area: Number & Caption Rata-Tengah */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.85rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
                 {operationalData.moving.movingPct}%
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '6px' }}>
                 {formatDurationHmFull(operationalData.moving.totalMovingMins)}
               </div>
             </div>
           </div>
 
-          {/* 5. STOPPING TIME */}
+          {/* CARD 5: STOPPING TIME */}
           <div
             onClick={() => handleCardChange('stopping')}
             style={{
               background: '#ffffff',
               border: activeCard === 'stopping' ? '2px solid #2563eb' : '1px solid #e2e8f0',
               borderRadius: '10px',
-              padding: '12px 14px',
+              padding: '14px 16px',
               cursor: 'pointer',
               boxShadow: activeCard === 'stopping' ? '0 4px 14px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0,0,0,0.03)',
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
-              height: '140px',
+              height: '155px',
               boxSizing: 'border-box',
               transition: 'all 0.15s ease'
             }}
           >
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3.5px', background: '#0284c7' }} />
+            {/* Top row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Square size={15} color="#0284c7" />
                 </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>Stopping Time</span>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a' }}>Stopping Time</span>
               </div>
               <ChevronRight size={15} color={activeCard === 'stopping' ? '#2563eb' : '#cbd5e1'} />
             </div>
-            <div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>
+            {/* Center Area: Number & Caption Rata-Tengah */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.85rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
                 {operationalData.stopping.stoppingPct}%
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '6px' }}>
                 {formatDurationHmFull(operationalData.stopping.totalStoppingMins)}
               </div>
             </div>
@@ -955,7 +953,7 @@ export default function UtilizationPage() {
         </div>
 
         {/* ================================================================== */}
-        {/* CONTAINER 1: SUMMARY COMPACT (BERKURANG TINGGI AGAR TABEL NAIK)   */}
+        {/* 2 & 4. SATU CONTAINER DETAIL DENGAN BADGE COMPACT & TABEL HARIAN   */}
         {/* ================================================================== */}
         <div
           style={{
@@ -965,7 +963,7 @@ export default function UtilizationPage() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             position: 'relative',
             overflow: 'hidden',
-            padding: '16px'
+            padding: '18px 20px'
           }}
         >
           {/* Top Tri-Color Gradient Stripe */}
@@ -980,187 +978,217 @@ export default function UtilizationPage() {
             }}
           />
 
-          {/* Heading & Subtitle */}
-          <div style={{ marginBottom: '12px' }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-              {activeCard === 'vehicle' && 'Detail Vehicle Breakdown'}
-              {activeCard === 'gps' && 'Detail GPS/WiFi Breakdown'}
-              {activeCard === 'mileage' && 'Detail Mileage'}
-              {activeCard === 'moving' && 'Detail Moving Time'}
-              {activeCard === 'stopping' && 'Detail Stopping Time'}
-            </h2>
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-              {scopeSubtitle}
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* DETAIL HEADING ROW WITH COMPACT BADGES ON THE RIGHT           */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              marginBottom: '14px',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}
+          >
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                {activeCard === 'vehicle' && 'Detail Vehicle Breakdown'}
+                {activeCard === 'gps' && 'Detail GPS/WiFi Breakdown'}
+                {activeCard === 'mileage' && 'Detail Mileage'}
+                {activeCard === 'moving' && 'Detail Moving Time'}
+                {activeCard === 'stopping' && 'Detail Stopping Time'}
+              </h2>
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '3px' }}>
+                {scopeSubtitle}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '1px' }}>
+                {activeCard === 'vehicle' && 'Status harian per kendaraan'}
+                {activeCard === 'gps' && 'Status harian GPS/WiFi per kendaraan'}
+                {activeCard === 'mileage' && 'Rincian jarak tempuh harian per unit kendaraan'}
+                {activeCard === 'moving' && 'Rincian durasi bergerak harian per unit kendaraan'}
+                {activeCard === 'stopping' && 'Rincian durasi berhenti harian per unit kendaraan'}
+              </div>
             </div>
+
+            {/* Compact Badges on the Right for Breakdown Views */}
+            {activeCard === 'vehicle' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#fee2e2',
+                    color: '#dc2626',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700
+                  }}
+                >
+                  <Car size={16} />
+                  <span>{vehicleBreakdownData.totalHk} HK rusak</span>
+                </div>
+
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#eff6ff',
+                    color: '#2563eb',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700
+                  }}
+                >
+                  <Users size={16} />
+                  <span>{vehicleBreakdownData.affectedUnitsCount} unit terdampak</span>
+                </div>
+              </div>
+            )}
+
+            {activeCard === 'gps' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#fef3c7',
+                    color: '#b45309',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700
+                  }}
+                >
+                  <Wifi size={16} />
+                  <span>{gpsBreakdownData.totalHk} HK rusak</span>
+                </div>
+
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#eff6ff',
+                    color: '#2563eb',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700
+                  }}
+                >
+                  <Users size={16} />
+                  <span>{gpsBreakdownData.affectedUnitsCount} unit terdampak</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ───────────────────────────────────────────────────────────── */}
-          {/* A. SUMMARY: VEHICLE BREAKDOWN                                  */}
-          {/* ───────────────────────────────────────────────────────────── */}
-          {activeCard === 'vehicle' && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                textAlign: 'center',
-                padding: '10px 0'
-              }}
-            >
-              <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0f172a' }}>
-                  {vehicleBreakdownData.totalIncidents}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                  Kejadian Kerusakan
-                </div>
-              </div>
-
-              <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0f172a' }}>
-                  {vehicleBreakdownData.affectedUnitsCount}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                  Unit Terdampak
-                </div>
-              </div>
-
-              <div style={{ padding: '0 16px' }}>
-                <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0f172a' }}>
-                  {vehicleBreakdownData.totalHk} HK
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                  Breakdown
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* B. SUMMARY: GPS/WIFI BREAKDOWN                                 */}
+          {/* COMPACT SUB-STATISTICS FOR GPS, MILEAGE, MOVING, STOPPING      */}
           {/* ───────────────────────────────────────────────────────────── */}
           {activeCard === 'gps' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', textAlign: 'center', padding: '4px 0' }}>
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Total Kejadian</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
-                    {gpsBreakdownData.totalCount}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Kejadian</div>
-                </div>
-
-                <div style={{ padding: '0 16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Unit Terdampak</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
-                    {gpsBreakdownData.affectedUnitsCount}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Unit</div>
-                </div>
+            <div style={{ marginBottom: '14px', maxWidth: '480px' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
+                Ringkasan Penyebab
               </div>
-
-              <div>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
-                  Ringkasan Penyebab
-                </div>
-                <div style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
-                    <thead>
-                      <tr style={{ background: '#1570ef', color: '#ffffff', textAlign: 'left' }}>
-                        <th style={{ padding: '7px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>PENYEBAB</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'right' }}>JUMLAH KEJADIAN</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '7px 14px', color: '#0f172a' }}>GPS</td>
-                        <td style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
-                          {gpsBreakdownData.gpsCount}
-                        </td>
-                      </tr>
-                      <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '7px 14px', color: '#0f172a' }}>Access Point / WiFi</td>
-                        <td style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
-                          {gpsBreakdownData.wifiCount}
-                        </td>
-                      </tr>
-                      <tr style={{ background: '#f8fafc', fontWeight: 700 }}>
-                        <td style={{ padding: '7px 14px', color: '#0f172a' }}>Total</td>
-                        <td style={{ padding: '7px 14px', textAlign: 'right', color: '#0f172a' }}>
-                          {gpsBreakdownData.totalCount}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+              <div style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <thead>
+                    <tr style={{ background: '#1570ef', color: '#ffffff', textAlign: 'left' }}>
+                      <th style={{ padding: '6px 12px', fontWeight: 700 }}>PENYEBAB</th>
+                      <th style={{ padding: '6px 12px', fontWeight: 700, textAlign: 'right' }}>JUMLAH HK RUSAK</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '6px 12px', color: '#0f172a' }}>GPS</td>
+                      <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                        {gpsBreakdownData.gpsCount}
+                      </td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '6px 12px', color: '#0f172a' }}>Access Point / WiFi</td>
+                      <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                        {gpsBreakdownData.wifiCount}
+                      </td>
+                    </tr>
+                    <tr style={{ background: '#f8fafc', fontWeight: 700 }}>
+                      <td style={{ padding: '6px 12px', color: '#0f172a' }}>Total</td>
+                      <td style={{ padding: '6px 12px', textAlign: 'right', color: '#0f172a' }}>
+                        {gpsBreakdownData.totalHk}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
 
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* C. SUMMARY: MILEAGE                                            */}
-          {/* ───────────────────────────────────────────────────────────── */}
           {activeCard === 'mileage' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '4px 0' }}>
-                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Total</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
-                    {fmtKmRaw(operationalData.mileage.totalMileageKm)} km
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Total</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+                    {fmtKm(operationalData.mileage.totalMileageKm)}
                   </div>
                 </div>
-
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Rata-rata</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
-                    {fmtKmRaw(operationalData.mileage.avgMileageKm)} km
+                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Rata-rata</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+                    {fmtKm(operationalData.mileage.avgMileageKm)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>per unit-hari</div>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>per unit-hari</div>
                 </div>
-
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Terendah</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
-                    {fmtKmRaw(operationalData.mileage.lowestMileage.val)} km
+                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Terendah</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+                    {fmtKm(operationalData.mileage.lowestMileage.val)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.mileage.lowestMileage.date)}
                   </div>
                 </div>
-
-                <div style={{ paddingLeft: '16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Tertinggi</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
-                    {fmtKmRaw(operationalData.mileage.highestMileage.val)} km
+                <div style={{ paddingLeft: '12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Tertinggi</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+                    {fmtKm(operationalData.mileage.highestMileage.val)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.mileage.highestMileage.date)}
                   </div>
                 </div>
               </div>
 
               <div>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
                   Statistik per Shift
                 </div>
                 <div style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
                     <thead>
                       <tr style={{ background: '#1570ef', color: '#ffffff', textAlign: 'center' }}>
-                        <th style={{ padding: '7px 14px', fontWeight: 700, textAlign: 'left' }}>SHIFT</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TOTAL JARAK</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>RATA-RATA</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TERENDAH</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TERTINGGI</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700, textAlign: 'left' }}>SHIFT</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TOTAL JARAK</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>RATA-RATA</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TERENDAH</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TERTINGGI</th>
                       </tr>
                     </thead>
                     <tbody>
                       {operationalData.mileage.shiftStats.map((s, idx) => (
                         <tr key={s.shift} style={{ borderBottom: idx < 2 ? '1px solid #f1f5f9' : 'none', textAlign: 'center' }}>
-                          <td style={{ padding: '7px 14px', fontWeight: 600, color: '#0f172a', textAlign: 'left' }}>{s.shift}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{fmtKmRaw(s.total)} km</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{fmtKmRaw(s.avg)} km</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{fmtKmRaw(s.lowest)} km</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{fmtKmRaw(s.highest)} km</td>
+                          <td style={{ padding: '6px 12px', fontWeight: 600, color: '#0f172a', textAlign: 'left' }}>{s.shift}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{fmtKm(s.total)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{fmtKm(s.avg)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{fmtKm(s.lowest)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{fmtKm(s.highest)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1170,71 +1198,65 @@ export default function UtilizationPage() {
             </div>
           )}
 
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* D. SUMMARY: MOVING TIME                                        */}
-          {/* ───────────────────────────────────────────────────────────── */}
           {activeCard === 'moving' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '4px 0' }}>
-                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Total</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Total</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
                     {formatDurationHmMini(operationalData.moving.totalMovingMins)}
                   </div>
                 </div>
-
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Rata-rata</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
+                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Rata-rata</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
                     {formatDurationHmMini(operationalData.moving.avgMovingMins)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>per unit-hari</div>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>per unit-hari</div>
                 </div>
-
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Terendah</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
+                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Terendah</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
                     {formatDurationHmMini(operationalData.moving.lowestMoving.mins)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.moving.lowestMoving.date)}
                   </div>
                 </div>
-
-                <div style={{ paddingLeft: '16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Tertinggi</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
+                <div style={{ paddingLeft: '12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Tertinggi</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
                     {formatDurationHmMini(operationalData.moving.highestMoving.mins)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.moving.highestMoving.date)}
                   </div>
                 </div>
               </div>
 
               <div>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
                   Statistik per Shift
                 </div>
                 <div style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
                     <thead>
                       <tr style={{ background: '#1570ef', color: '#ffffff', textAlign: 'center' }}>
-                        <th style={{ padding: '7px 14px', fontWeight: 700, textAlign: 'left' }}>SHIFT</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TOTAL MOVING</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>RATA-RATA</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TERENDAH</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TERTINGGI</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700, textAlign: 'left' }}>SHIFT</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TOTAL MOVING</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>RATA-RATA</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TERENDAH</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TERTINGGI</th>
                       </tr>
                     </thead>
                     <tbody>
                       {operationalData.moving.shiftStats.map((s, idx) => (
                         <tr key={s.shift} style={{ borderBottom: idx < 2 ? '1px solid #f1f5f9' : 'none', textAlign: 'center' }}>
-                          <td style={{ padding: '7px 14px', fontWeight: 600, color: '#0f172a', textAlign: 'left' }}>{s.shift}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{formatDurationHmMini(s.totalMins)}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{formatDurationHmMini(s.avgMins)}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{formatDurationHmMini(s.lowestMins)}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{formatDurationHmMini(s.highestMins)}</td>
+                          <td style={{ padding: '6px 12px', fontWeight: 600, color: '#0f172a', textAlign: 'left' }}>{s.shift}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{formatDurationHmMini(s.totalMins)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{formatDurationHmMini(s.avgMins)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{formatDurationHmMini(s.lowestMins)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{formatDurationHmMini(s.highestMins)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1244,71 +1266,65 @@ export default function UtilizationPage() {
             </div>
           )}
 
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* E. SUMMARY: STOPPING TIME                                      */}
-          {/* ───────────────────────────────────────────────────────────── */}
           {activeCard === 'stopping' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '4px 0' }}>
-                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Total</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', textAlign: 'left', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: '12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Total</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
                     {formatDurationHmMini(operationalData.stopping.totalStoppingMins)}
                   </div>
                 </div>
-
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Rata-rata</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
+                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Rata-rata</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
                     {formatDurationHmMini(operationalData.stopping.avgStoppingMins)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>per unit-hari</div>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>per unit-hari</div>
                 </div>
-
-                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Terendah</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
+                <div style={{ borderRight: '1px solid #f1f5f9', padding: '0 12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Terendah</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
                     {formatDurationHmMini(operationalData.stopping.lowestStopping.mins)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.stopping.lowestStopping.date)}
                   </div>
                 </div>
-
-                <div style={{ paddingLeft: '16px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Tertinggi</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
+                <div style={{ paddingLeft: '12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Tertinggi</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
                     {formatDurationHmMini(operationalData.stopping.highestStopping.mins)}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
                     {formatDateIndo(operationalData.stopping.highestStopping.date)}
                   </div>
                 </div>
               </div>
 
               <div>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
                   Statistik per Shift
                 </div>
                 <div style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
                     <thead>
                       <tr style={{ background: '#1570ef', color: '#ffffff', textAlign: 'center' }}>
-                        <th style={{ padding: '7px 14px', fontWeight: 700, textAlign: 'left' }}>SHIFT</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TOTAL STOPPING</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>RATA-RATA</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TERENDAH</th>
-                        <th style={{ padding: '7px 14px', fontWeight: 700 }}>TERTINGGI</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700, textAlign: 'left' }}>SHIFT</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TOTAL STOPPING</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>RATA-RATA</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TERENDAH</th>
+                        <th style={{ padding: '6px 12px', fontWeight: 700 }}>TERTINGGI</th>
                       </tr>
                     </thead>
                     <tbody>
                       {operationalData.stopping.shiftStats.map((s, idx) => (
                         <tr key={s.shift} style={{ borderBottom: idx < 2 ? '1px solid #f1f5f9' : 'none', textAlign: 'center' }}>
-                          <td style={{ padding: '7px 14px', fontWeight: 600, color: '#0f172a', textAlign: 'left' }}>{s.shift}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{formatDurationHmMini(s.totalMins)}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{formatDurationHmMini(s.avgMins)}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{formatDurationHmMini(s.lowestMins)}</td>
-                          <td style={{ padding: '7px 14px', color: '#0f172a' }}>{formatDurationHmMini(s.highestMins)}</td>
+                          <td style={{ padding: '6px 12px', fontWeight: 600, color: '#0f172a', textAlign: 'left' }}>{s.shift}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{formatDurationHmMini(s.totalMins)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{formatDurationHmMini(s.avgMins)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{formatDurationHmMini(s.lowestMins)}</td>
+                          <td style={{ padding: '6px 12px', color: '#0f172a' }}>{formatDurationHmMini(s.highestMins)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1317,177 +1333,146 @@ export default function UtilizationPage() {
               </div>
             </div>
           )}
-        </div>
 
-        {/* ================================================================== */}
-        {/* CONTAINER 2: TABEL DETAIL HARIAN (TANPA TOMBOL EXPORT)             */}
-        {/* ================================================================== */}
-        <div
-          style={{
-            background: '#ffffff',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            position: 'relative',
-            overflow: 'hidden',
-            padding: '16px'
-          }}
-        >
-          {/* Top Tri-Color Gradient Stripe */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '3px',
-              background: 'linear-gradient(90deg, #2563eb 0%, #0d9488 50%, #16a34a 100%)'
-            }}
-          />
-
-          {/* Table Header Controls (Title + Search + Page Size) */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* TOOLBAR PENCARIAN & PAGE SIZE (LANGSUNG DI ATAS TABEL)       */}
+          {/* ───────────────────────────────────────────────────────────── */}
           <div
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '14px',
-              flexWrap: 'wrap',
-              gap: '10px'
+              marginBottom: '12px',
+              gap: '12px'
             }}
           >
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-              {activeCard === 'vehicle' && 'Tabel Detail Vehicle Breakdown'}
-              {activeCard === 'gps' && 'Tabel Detail GPS/WiFi Breakdown'}
-              {activeCard === 'mileage' && 'Tabel Detail Mileage (Per Unit Kendaraan)'}
-              {activeCard === 'moving' && 'Tabel Detail Moving Time (Per Unit Kendaraan)'}
-              {activeCard === 'stopping' && 'Tabel Detail Stopping Time (Per Unit Kendaraan)'}
-            </h3>
-
-            {/* Right: Search Input + Page Size Selector (NO EXPORT BUTTON) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: '#f8fafc',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  padding: '5px 10px',
-                  width: '260px'
-                }}
-              >
-                <Search size={14} color="#94a3b8" style={{ marginRight: '6px', flexShrink: 0 }} />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  placeholder={
-                    activeCard === 'vehicle'
-                      ? 'Cari unit atau keterangan...'
-                      : 'Cari unit kendaraan atau tanggal...'
-                  }
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    outline: 'none',
-                    fontSize: '0.75rem',
-                    color: '#0f172a',
-                    width: '100%'
-                  }}
-                />
-              </div>
-
-              {/* Page size dropdown */}
-              <select
-                value={pageSize}
+            <div
+              style={{
+                flex: 1,
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                padding: '6px 12px'
+              }}
+            >
+              <Search size={15} color="#94a3b8" style={{ marginRight: '8px', flexShrink: 0 }} />
+              <input
+                type="text"
+                value={searchQuery}
                 onChange={(e) => {
-                  setPageSize(parseInt(e.target.value, 10))
+                  setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
+                placeholder={
+                  activeCard === 'vehicle'
+                    ? 'Cari unit atau keterangan...'
+                    : 'Cari unit kendaraan atau tanggal...'
+                }
                 style={{
-                  border: '1px solid #cbd5e1',
-                  background: '#f8fafc',
-                  borderRadius: '6px',
-                  padding: '5px 8px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: '0.78rem',
                   color: '#0f172a',
-                  cursor: 'pointer'
+                  width: '100%',
+                  fontFamily: 'inherit'
                 }}
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
+              />
             </div>
+
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(parseInt(e.target.value, 10))
+                setCurrentPage(1)
+              }}
+              style={{
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                color: '#0f172a',
+                cursor: 'pointer',
+                fontFamily: 'inherit'
+              }}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
           </div>
 
-          {/* TABLE CONTENT */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* TABEL DETAIL HARIAN (BLUE HEADER, ALTERNATING ROWS)          */}
+          {/* ───────────────────────────────────────────────────────────── */}
           <div style={{ borderRadius: '6px', overflowX: 'auto', border: '1px solid #e2e8f0' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
-              {/* TABLE HEADER (BLUE BACKGROUND, WHITE BOLD TEXT) */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
               <thead>
-                <tr style={{ background: '#1570ef', color: '#ffffff', textAlign: 'left' }}>
-                  <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>TANGGAL</th>
-                  <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>ESTATE</th>
-                  <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>UNIT KENDARAAN</th>
+                <tr style={{ background: '#1570ef', color: '#ffffff' }}>
+                  <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>TANGGAL</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>ESTATE</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'left' }}>UNIT KENDARAAN</th>
 
+                  {/* 4. VEHICLE BREAKDOWN: Kolom Tanggal | Estate | Unit Kendaraan | Status Harian | HK Rusak | Keterangan */}
                   {activeCard === 'vehicle' && (
                     <>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>SHIFT</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>STATUS KENDARAAN</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>HK BREAKDOWN</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>KETERANGAN</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>STATUS HARIAN</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>HK RUSAK</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'left' }}>KETERANGAN</th>
                     </>
                   )}
 
+                  {/* GPS BREAKDOWN: Tanpa kolom shift */}
                   {activeCard === 'gps' && (
                     <>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>SHIFT</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>PENYEBAB</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em' }}>KETERANGAN</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>PENYEBAB</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>HK RUSAK</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'left' }}>KETERANGAN</th>
                     </>
                   )}
 
+                  {/* MILEAGE */}
                   {activeCard === 'mileage' && (
                     <>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>TOTAL JARAK</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 1</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 2</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 3</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>TOTAL JARAK</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 1</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 2</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 3</th>
                     </>
                   )}
 
+                  {/* MOVING TIME */}
                   {activeCard === 'moving' && (
                     <>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>TOTAL MOVING</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 1</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 2</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 3</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>TOTAL MOVING</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 1</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 2</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 3</th>
                     </>
                   )}
 
+                  {/* STOPPING TIME */}
                   {activeCard === 'stopping' && (
                     <>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>TOTAL STOPPING</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 1</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 2</th>
-                      <th style={{ padding: '9px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 3</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>TOTAL STOPPING</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 1</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 2</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, letterSpacing: '0.03em', textAlign: 'center' }}>SHIFT 3</th>
                     </>
                   )}
                 </tr>
               </thead>
 
-              {/* TABLE BODY */}
               <tbody>
                 {activeTableData.rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                    <td colSpan={6} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
                       Tidak ada data yang sesuai dengan filter atau pencarian.
                     </td>
                   </tr>
@@ -1498,49 +1483,54 @@ export default function UtilizationPage() {
                       style={{
                         borderBottom: '1px solid #f1f5f9',
                         background: idx % 2 === 1 ? '#fafcff' : '#ffffff',
+                        height: '56px',
                         transition: 'background 0.1s ease'
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = '#f0f7ff')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 1 ? '#fafcff' : '#ffffff')}
                     >
-                      <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>
+                      {/* Tanggal (Rata Tengah) */}
+                      <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap', textAlign: 'center' }}>
                         {formatDateIndo(row.date)}
                       </td>
-                      <td style={{ padding: '10px 14px', color: '#334155', fontWeight: 500 }}>
+
+                      {/* Estate (Rata Tengah) */}
+                      <td style={{ padding: '10px 14px', color: '#334155', fontWeight: 500, textAlign: 'center' }}>
                         {row.estateId}
                       </td>
-                      <td style={{ padding: '10px 14px' }}>
+
+                      {/* Unit Kendaraan (Rata Kiri, Nopol Bold, ID Subteks) */}
+                      <td style={{ padding: '10px 14px', textAlign: 'left' }}>
                         <div style={{ fontWeight: 700, color: '#0f172a' }}>{row.nopol}</div>
-                        <div style={{ fontSize: '0.68rem', color: '#64748b' }}>ID: {row.vehicleId}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>ID: {row.vehicleId}</div>
                       </td>
 
-                      {/* VEHICLE COLUMNS */}
+                      {/* 4. VEHICLE BREAKDOWN: Status Harian (Tengah), HK Rusak (Tengah), Keterangan (Kiri) */}
                       {activeCard === 'vehicle' && (
                         <>
-                          <td style={{ padding: '10px 14px', color: '#475569' }}>{row.shift}</td>
-                          <td style={{ padding: '10px 14px' }}>
-                            {row.status === 'Breakdown' ? (
+                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                            {row.statusHarian === 'Rusak' ? (
                               <span
                                 style={{
                                   background: '#fee2e2',
                                   color: '#dc2626',
-                                  padding: '3px 8px',
+                                  padding: '3px 10px',
                                   borderRadius: '4px',
-                                  fontSize: '0.72rem',
+                                  fontSize: '0.74rem',
                                   fontWeight: 600,
                                   display: 'inline-block'
                                 }}
                               >
-                                Breakdown
+                                Rusak
                               </span>
                             ) : (
                               <span
                                 style={{
                                   background: '#dcfce7',
                                   color: '#16a34a',
-                                  padding: '3px 8px',
+                                  padding: '3px 10px',
                                   borderRadius: '4px',
-                                  fontSize: '0.72rem',
+                                  fontSize: '0.74rem',
                                   fontWeight: 600,
                                   display: 'inline-block'
                                 }}
@@ -1549,27 +1539,26 @@ export default function UtilizationPage() {
                               </span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center', color: '#0f172a', fontWeight: 600 }}>
-                            {row.hkBreakdown !== null ? row.hkBreakdown : '—'}
+                          <td style={{ padding: '10px 14px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}>
+                            {row.hkRusak !== null ? row.hkRusak : '—'}
                           </td>
-                          <td style={{ padding: '10px 14px', color: '#475569' }}>
+                          <td style={{ padding: '10px 14px', color: '#475569', textAlign: 'left' }}>
                             {row.keterangan}
                           </td>
                         </>
                       )}
 
-                      {/* GPS COLUMNS */}
+                      {/* GPS BREAKDOWN: Penyebab (Tengah), HK Rusak (Tengah), Keterangan (Kiri) */}
                       {activeCard === 'gps' && (
                         <>
-                          <td style={{ padding: '10px 14px', color: '#475569' }}>{row.shift}</td>
-                          <td style={{ padding: '10px 14px' }}>
+                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                             <span
                               style={{
                                 background: '#fef3c7',
                                 color: '#b45309',
-                                padding: '3px 8px',
+                                padding: '3px 10px',
                                 borderRadius: '4px',
-                                fontSize: '0.72rem',
+                                fontSize: '0.74rem',
                                 fontWeight: 600,
                                 display: 'inline-block'
                               }}
@@ -1577,13 +1566,16 @@ export default function UtilizationPage() {
                               {row.penyebab}
                             </span>
                           </td>
-                          <td style={{ padding: '10px 14px', color: '#475569' }}>
+                          <td style={{ padding: '10px 14px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}>
+                            {row.hkRusak !== null ? row.hkRusak : '—'}
+                          </td>
+                          <td style={{ padding: '10px 14px', color: '#475569', textAlign: 'left' }}>
                             {row.keterangan}
                           </td>
                         </>
                       )}
 
-                      {/* MILEAGE COLUMNS */}
+                      {/* MILEAGE */}
                       {activeCard === 'mileage' && (
                         <>
                           <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>
@@ -1601,7 +1593,7 @@ export default function UtilizationPage() {
                         </>
                       )}
 
-                      {/* MOVING TIME COLUMNS */}
+                      {/* MOVING TIME */}
                       {activeCard === 'moving' && (
                         <>
                           <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>
@@ -1619,7 +1611,7 @@ export default function UtilizationPage() {
                         </>
                       )}
 
-                      {/* STOPPING TIME COLUMNS */}
+                      {/* STOPPING TIME */}
                       {activeCard === 'stopping' && (
                         <>
                           <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>
@@ -1643,7 +1635,9 @@ export default function UtilizationPage() {
             </table>
           </div>
 
-          {/* TABLE FOOTER / PAGINATION */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* TABLE FOOTER / PAGINATION                                     */}
+          {/* ───────────────────────────────────────────────────────────── */}
           <div
             style={{
               display: 'flex',
@@ -1655,7 +1649,7 @@ export default function UtilizationPage() {
             }}
           >
             <div>
-              Menampilkan {activeTableData.total > 0 ? (currentPage - 1) * pageSize + 1 : 0} -{' '}
+              Menampilkan {activeTableData.total > 0 ? (currentPage - 1) * pageSize + 1 : 0}-
               {Math.min(currentPage * pageSize, activeTableData.total)} dari {activeTableData.total} data
             </div>
 
@@ -1729,6 +1723,18 @@ export default function UtilizationPage() {
               </button>
             </div>
           </div>
+
+          {/* Subtext info under table */}
+          {activeCard === 'vehicle' && (
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '6px' }}>
+              HK rusak dihitung per kendaraan per hari.
+            </div>
+          )}
+          {activeCard === 'gps' && (
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '6px' }}>
+              HK rusak GPS/WiFi dihitung per kendaraan per hari.
+            </div>
+          )}
         </div>
       </div>
     </PageShell>
